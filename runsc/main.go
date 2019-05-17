@@ -42,6 +42,7 @@ var (
 	logFilename = flag.String("log", "", "file path where internal debug information is written, default is stdout")
 	logFormat   = flag.String("log-format", "text", "log format: text (default), json, or json-k8s")
 	debug       = flag.Bool("debug", false, "enable debug logging")
+	perf	    = flag.Bool("perf", false, "enable perf logging")
 	showVersion = flag.Bool("version", false, "show version and exit")
 
 	// These flags are unique to runsc, and are used to configure parts of the
@@ -49,6 +50,7 @@ var (
 
 	// Debugging flags.
 	debugLog       = flag.String("debug-log", "", "additional location for logs. If it ends with '/', log files are created inside the directory with default names. The following variables are available: %TIMESTAMP%, %COMMAND%.")
+	perfLog       = flag.String("perf-log", "", "location for logging of performance metrics. Location overwrites debugging log if passed in")
 	logPackets     = flag.Bool("log-packets", false, "enable network packet logging")
 	logFD          = flag.Int("log-fd", -1, "file descriptor to log to.  If set, the 'log' flag is ignored.")
 	debugLogFD     = flag.Int("debug-log-fd", -1, "file descriptor to write debug logs to.  If set, the 'debug-log-dir' flag is ignored.")
@@ -172,6 +174,11 @@ func main() {
 		log.SetLevel(log.Debug)
 	}
 
+	// Overwrite debugging if performance testing
+	if *perf {
+		log.SetLevel(log.Perf)
+	}
+
 	subcommand := flag.CommandLine.Arg(0)
 
 	var logFile io.Writer = os.Stderr
@@ -217,6 +224,12 @@ func main() {
 		} else {
 			e = log.MultiEmitter{e, newEmitter(*debugLogFormat, f)}
 		}
+	} else if *perfLog != "" {
+		f, err := specutils.DebugLogFile(*perfLog, subcommand)
+		if err != nil {
+			cmd.Fatalf("error opening perf log file in %q: %v", *perfLog, err)
+		}
+		e = log.MultiEmitter{e, newEmitter(*debugLogFormat, f)}
 	} else if *debugLog != "" {
 		f, err := specutils.DebugLogFile(*debugLog, subcommand)
 		if err != nil {
