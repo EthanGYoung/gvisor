@@ -147,9 +147,11 @@ func main() {
 	conf := &boot.Config{
 		RootDir:        *rootDir,
 		Debug:          *debug,
+		Perf:		*perf,
 		LogFilename:    *logFilename,
 		LogFormat:      *logFormat,
 		DebugLog:       *debugLog,
+		PerfLog:	*perfLog,
 		DebugLogFormat: *debugLogFormat,
 		FileAccess:     fsAccess,
 		Overlay:        *overlay,
@@ -178,6 +180,7 @@ func main() {
 	if *perf {
 		log.SetLevel(log.Perf)
 	}
+	log.SetLevel(log.Perf)
 
 	subcommand := flag.CommandLine.Arg(0)
 
@@ -229,7 +232,8 @@ func main() {
 		if err != nil {
 			cmd.Fatalf("error opening perf log file in %q: %v", *perfLog, err)
 		}
-		e = log.MultiEmitter{e, newEmitter(*debugLogFormat, f)}
+		e = newEmitter(*debugLogFormat, f)
+		//e = log.MultiEmitter{e, newEmitter(*debugLogFormat, f)}
 	} else if *debugLog != "" {
 		f, err := specutils.DebugLogFile(*debugLog, subcommand)
 		if err != nil {
@@ -239,7 +243,9 @@ func main() {
 	}
 
 	log.SetTarget(e)
+	log.SetLevel(log.Perf)
 
+	//log.Perff("Perf log in main")
 	log.Infof("***************************")
 	log.Infof("Args: %s", os.Args)
 	log.Infof("Version %s", version)

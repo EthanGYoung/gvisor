@@ -49,4 +49,10 @@ custom:
 	sudo cp ./bazel-bin/runsc/linux_amd64_pure_stripped/runsc /usr/local/bin
 	sudo systemctl restart docker
 
+perf-test:
+	sudo docker run --runtime=runsc --rm open 1
+
+remove-log:
+	sudo rm -rf /tmp/runsc/
+
 .PHONY: docker-build bazel-shutdown bazel-server-start bazel-server bazel runsc tests

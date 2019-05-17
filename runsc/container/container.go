@@ -849,6 +849,16 @@ func (c *Container) createGoferProcess(spec *specs.Spec, conf *boot.Config, bund
 		nextFD++
 	}
 
+	if conf.PerfLog != "" {
+		debugLogFile, err := specutils.DebugLogFile(conf.PerfLog, "gofer")
+		if err != nil {
+			return nil, nil, fmt.Errorf("opening debug log file in %q: %v", conf.DebugLog, err)
+		}
+		defer debugLogFile.Close()
+		goferEnds = append(goferEnds, debugLogFile)
+		args = append(args, "--debug-log-fd="+strconv.Itoa(nextFD))
+		nextFD++
+	}
 	args = append(args, "gofer", "--bundle", bundleDir)
 	if conf.Overlay {
 		args = append(args, "--panic-on-write=true")

@@ -40,8 +40,11 @@ type Level uint32
 // RPCs allow for changing the level as an integer, it is only possible to add
 // additional levels, and the existing one cannot be removed.
 const (
+	// Perf indicates that output is performance sensitive
+	Perf Level = iota
+
 	// Warning indicates that output should always be emitted.
-	Warning Level = iota
+	Warning
 
 	// Info indicates that output should normally be emitted.
 	Info
@@ -49,8 +52,6 @@ const (
 	// Debug indicates that output should not normally be emitted.
 	Debug
 
-	// Perf indicates that output is performance sensitive
-	Perf
 )
 
 // Emitter is the final destination for logs.
