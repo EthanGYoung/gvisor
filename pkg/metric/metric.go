@@ -232,6 +232,7 @@ func EmitMetricUpdate() {
 	for k, v := range snapshot {
 		// On the first call metricsAtLastEmit will be empty. Include
 		// all metrics then.
+		// TODO: Only include metrics with root /perf
 		if prev, ok := metricsAtLastEmit[k]; !ok || prev != v {
 			m.Metrics = append(m.Metrics, &pb.MetricValue{
 				Name:  k,
@@ -245,6 +246,6 @@ func EmitMetricUpdate() {
 		return
 	}
 
-	log.Debugf("Emitting metrics: %v", m)
+	log.Perff("Emitting metrics: %v", m)
 	eventchannel.Emit(&m)
 }
