@@ -50,7 +50,7 @@ custom:
 	sudo systemctl restart docker
 
 perf-test:
-	sudo docker run --runtime=runsc --rm open 1
+	sudo docker run --runtime=runsc --rm open 100000
 
 remove-log:
 	sudo rm -rf /tmp/runsc/

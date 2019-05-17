@@ -329,7 +329,7 @@ func (l *local) Allocate(mode p9.AllocateMode, offset, length uint64) error {
 }
 
 func main() {
-	//log.SetLevel(log.Debug)
+	log.SetLevel(log.Debug)
 
 	if len(os.Args) != 2 {
 		log.Warningf("usage: %s <bind-addr>", os.Args[0])

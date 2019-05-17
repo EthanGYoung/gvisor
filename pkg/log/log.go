@@ -178,6 +178,13 @@ type BasicLogger struct {
 	Emitter
 }
 
+// Perff implements logger.Perff
+func (l *BasicLogger) Perff(format string, v ...interface{}) {
+	if l.IsLogging(Perf) {
+		l.Emit(Perf, time.Now(), format, v...)
+	}
+}
+
 // Debugf implements logger.Debugf.
 func (l *BasicLogger) Debugf(format string, v ...interface{}) {
 	if l.IsLogging(Debug) {
@@ -199,12 +206,6 @@ func (l *BasicLogger) Warningf(format string, v ...interface{}) {
 	}
 }
 
-// Perff implements logger.Perff
-func (l *BasicLogger) Perff(format string, v ...interface{}) {
-	if l.IsLogging(Perf) {
-		l.Emit(Perf, time.Now(), format, v...)
-	}
-}
 
 // IsLogging implements logger.IsLogging.
 func (l *BasicLogger) IsLogging(level Level) bool {
