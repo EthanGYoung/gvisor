@@ -164,7 +164,7 @@ type Logger interface {
 	Warningf(format string, v ...interface{})
 
 	// Perff logs at a performance level
-	Perff(format string, v ...interface{})
+//	Perff(format string, v ...interface{})
 
 	// IsLogging returns true iff this level is being logged. This may be
 	// used to short-circuit expensive operations for debugging calls.
@@ -260,7 +260,7 @@ func Warningf(format string, v ...interface{}) {
 
 // Perff logs to the global logger
 func Perff(format string, v ...interface{}) {
-	Log().Warning(format, v...)
+	Log().Perff(format, v...)
 }
 
 // defaultStackSize is the default buffer size to allocate for stack traces.
