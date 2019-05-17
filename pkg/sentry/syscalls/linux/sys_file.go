@@ -23,7 +23,9 @@ import (
 	"gvisor.googlesource.com/gvisor/pkg/sentry/context"
 	"gvisor.googlesource.com/gvisor/pkg/sentry/fs"
 	"gvisor.googlesource.com/gvisor/pkg/sentry/fs/lock"
+	"gvisor.googlesource.com/gvisor/pkg/log"
 	"gvisor.googlesource.com/gvisor/pkg/sentry/fs/tmpfs"
+	"gvisor.googlesource.com/gvisor/pkg/metric"
 	"gvisor.googlesource.com/gvisor/pkg/sentry/kernel"
 	"gvisor.googlesource.com/gvisor/pkg/sentry/kernel/auth"
 	"gvisor.googlesource.com/gvisor/pkg/sentry/kernel/fasync"
@@ -393,6 +395,8 @@ func createAt(t *kernel.Task, dirFD kdefs.FD, addr usermem.Addr, flags uint, mod
 func Open(t *kernel.Task, args arch.SyscallArguments) (uintptr, *kernel.SyscallControl, error) {
 	addr := args[0].Pointer()
 	flags := uint(args[1].Uint())
+	log.Perff("This is a test for performance")
+	metric.EmitMetricUpdate()
 	if flags&linux.O_CREAT != 0 {
 		mode := linux.FileMode(args[2].ModeT())
 		n, err := createAt(t, linux.AT_FDCWD, addr, flags, mode)

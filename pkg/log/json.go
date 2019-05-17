@@ -35,6 +35,8 @@ func (lv Level) MarshalJSON() ([]byte, error) {
 		return []byte(`"info"`), nil
 	case Debug:
 		return []byte(`"debug"`), nil
+	case Perf:
+		return []byte(`"perf"`), nil
 	default:
 		return nil, fmt.Errorf("unknown level %v", lv)
 	}
@@ -44,11 +46,13 @@ func (lv Level) MarshalJSON() ([]byte, error) {
 // from both string names and integers.
 func (lv *Level) UnmarshalJSON(b []byte) error {
 	switch s := string(b); s {
-	case "0", `"warning"`:
+	case "0", `"perf"`:
+		*lv = Perf
+	case "1", `"warning"`:
 		*lv = Warning
-	case "1", `"info"`:
+	case "2", `"info"`:
 		*lv = Info
-	case "2", `"debug"`:
+	case "3", `"debug"`:
 		*lv = Debug
 	default:
 		return fmt.Errorf("unknown level %q", s)

@@ -117,6 +117,8 @@ func (g GoogleEmitter) Emit(level Level, timestamp time.Time, format string, arg
 
 	// Log level.
 	switch level {
+	case Perf:
+		b.write('P')
 	case Debug:
 		b.write('D')
 	case Info:

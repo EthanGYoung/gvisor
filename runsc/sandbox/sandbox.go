@@ -323,6 +323,16 @@ func (s *Sandbox) createSandboxProcess(spec *specs.Spec, conf *boot.Config, bund
 		cmd.Args = append(cmd.Args, "--debug-log-fd="+strconv.Itoa(nextFD))
 		nextFD++
 	}
+	if conf.PerfLog != "" {
+		debugLogFile, err := specutils.DebugLogFile(conf.PerfLog, "boot")
+		if err != nil {
+			return fmt.Errorf("opening debug log file in %q: %v", conf.DebugLog, err)
+		}
+		defer debugLogFile.Close()
+		cmd.ExtraFiles = append(cmd.ExtraFiles, debugLogFile)
+		cmd.Args = append(cmd.Args, "--debug-log-fd="+strconv.Itoa(nextFD))
+		nextFD++
+	}
 
 	// Add the "boot" command to the args.
 	//

@@ -40,14 +40,18 @@ type Level uint32
 // RPCs allow for changing the level as an integer, it is only possible to add
 // additional levels, and the existing one cannot be removed.
 const (
+	// Perf indicates that output is performance sensitive
+	Perf Level = iota
+
 	// Warning indicates that output should always be emitted.
-	Warning Level = iota
+	Warning
 
 	// Info indicates that output should normally be emitted.
 	Info
 
 	// Debug indicates that output should not normally be emitted.
 	Debug
+
 )
 
 // Emitter is the final destination for logs.
@@ -160,6 +164,9 @@ type Logger interface {
 	// Warningf logs at a warning level.
 	Warningf(format string, v ...interface{})
 
+	// Perff logs at a performance level
+//	Perff(format string, v ...interface{})
+
 	// IsLogging returns true iff this level is being logged. This may be
 	// used to short-circuit expensive operations for debugging calls.
 	IsLogging(level Level) bool
@@ -169,6 +176,13 @@ type Logger interface {
 type BasicLogger struct {
 	Level
 	Emitter
+}
+
+// Perff implements logger.Perff
+func (l *BasicLogger) Perff(format string, v ...interface{}) {
+	if l.IsLogging(Perf) {
+		l.Emit(Perf, time.Now(), format, v...)
+	}
 }
 
 // Debugf implements logger.Debugf.
@@ -191,6 +205,7 @@ func (l *BasicLogger) Warningf(format string, v ...interface{}) {
 		l.Emit(Warning, time.Now(), format, v...)
 	}
 }
+
 
 // IsLogging implements logger.IsLogging.
 func (l *BasicLogger) IsLogging(level Level) bool {
@@ -243,6 +258,11 @@ func Infof(format string, v ...interface{}) {
 // Warningf logs to the global logger.
 func Warningf(format string, v ...interface{}) {
 	Log().Warningf(format, v...)
+}
+
+// Perff logs to the global logger
+func Perff(format string, v ...interface{}) {
+	Log().Perff(format, v...)
 }
 
 // defaultStackSize is the default buffer size to allocate for stack traces.
@@ -300,6 +320,8 @@ func CopyStandardLogTo(l Level) error {
 		f = Infof
 	case Warning:
 		f = Warningf
+	case Perf:
+		f = Perff
 	default:
 		return fmt.Errorf("Unknown log level %v", l)
 	}

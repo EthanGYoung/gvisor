@@ -154,6 +154,10 @@ type Config struct {
 	// Debug indicates that debug logging should be enabled.
 	Debug bool
 
+	Perf bool
+
+	PerfLog string
+
 	// LogFilename is the filename to log to, if not empty.
 	LogFilename string
 
@@ -228,9 +232,11 @@ func (c *Config) ToFlags() []string {
 	f := []string{
 		"--root=" + c.RootDir,
 		"--debug=" + strconv.FormatBool(c.Debug),
+		"--perf=" + strconv.FormatBool(c.Perf),
 		"--log=" + c.LogFilename,
 		"--log-format=" + c.LogFormat,
 		"--debug-log=" + c.DebugLog,
+		"--perf-log=" + c.PerfLog,
 		"--debug-log-format=" + c.DebugLogFormat,
 		"--file-access=" + c.FileAccess.String(),
 		"--overlay=" + strconv.FormatBool(c.Overlay),
