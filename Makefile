@@ -44,4 +44,9 @@ tests:
 unit-tests:
 	$(MAKE) BAZEL_OPTIONS="test //pkg/... //runsc/... //tools/..." bazel
 
+custom:
+	bazel build runsc
+	sudo cp ./bazel-bin/runsc/linux_amd64_pure_stripped/runsc /usr/local/bin
+	sudo systemctl restart docker
+
 .PHONY: docker-build bazel-shutdown bazel-server-start bazel-server bazel runsc tests
