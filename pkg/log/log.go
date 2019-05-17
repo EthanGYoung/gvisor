@@ -48,6 +48,9 @@ const (
 
 	// Debug indicates that output should not normally be emitted.
 	Debug
+
+	// Perf indicates that output is performance sensitive
+	Perf
 )
 
 // Emitter is the final destination for logs.
@@ -160,6 +163,9 @@ type Logger interface {
 	// Warningf logs at a warning level.
 	Warningf(format string, v ...interface{})
 
+	// Perff logs at a performance level
+	Perff(format string, v ...interface{})
+
 	// IsLogging returns true iff this level is being logged. This may be
 	// used to short-circuit expensive operations for debugging calls.
 	IsLogging(level Level) bool
@@ -189,6 +195,13 @@ func (l *BasicLogger) Infof(format string, v ...interface{}) {
 func (l *BasicLogger) Warningf(format string, v ...interface{}) {
 	if l.IsLogging(Warning) {
 		l.Emit(Warning, time.Now(), format, v...)
+	}
+}
+
+// Perff implements logger.Perff
+func (l *BasicLogger) Perff(format string, v ...interface{}) {
+	if l.IsLogging(Perf) {
+		l.Emit(Perf, time.Now(), format, v...)
 	}
 }
 
@@ -243,6 +256,11 @@ func Infof(format string, v ...interface{}) {
 // Warningf logs to the global logger.
 func Warningf(format string, v ...interface{}) {
 	Log().Warningf(format, v...)
+}
+
+// Perff logs to the global logger
+func Perff(format string, v ...interface{}) {
+	Log().Warning(format, v...)
 }
 
 // defaultStackSize is the default buffer size to allocate for stack traces.
@@ -300,6 +318,8 @@ func CopyStandardLogTo(l Level) error {
 		f = Infof
 	case Warning:
 		f = Warningf
+	case Perf:
+		f = Perff
 	default:
 		return fmt.Errorf("Unknown log level %v", l)
 	}
