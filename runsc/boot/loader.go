@@ -558,7 +558,7 @@ func (l *Loader) run() error {
 		if err := mntr.processHints(l.conf); err != nil {
 			return err
 		}
-		if err := setupContainerFS(ctx, l.conf, mntr, &l.rootProcArgs); err != nil {
+		if err := setupContainerFS(ctx, l.conf, mntr, &l.rootProcArgs, l.layerFDs); err != nil {
 			return err
 		}
 
@@ -702,7 +702,7 @@ func (l *Loader) startContainer(spec *specs.Spec, conf *Config, cid string, file
 	l.startGoferMonitor(cid, goferFDs)
 
 	mntr := newContainerMounter(spec, goferFDs, l.k, l.mountHints)
-	if err := setupContainerFS(ctx, conf, mntr, &procArgs); err != nil {
+	if err := setupContainerFS(ctx, conf, mntr, &procArgs, l.layerFDs); err != nil {
 		return err
 	}
 

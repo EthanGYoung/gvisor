@@ -443,7 +443,7 @@ func (s *Sandbox) createSandboxProcess(conf *boot.Config, args *Args, startSyncF
 	}
 
 	//Experiemntal Feature: use multiple layers of imgfs to replace gofer.
-    files, err := ioutil.ReadDir(spec.Root.Path)
+    files, err := ioutil.ReadDir(args.Spec.Root.Path)
     var layers []string
     for _, file := range files {
         if strings.HasSuffix(file.Name(), ".img") {
@@ -453,7 +453,7 @@ func (s *Sandbox) createSandboxProcess(conf *boot.Config, args *Args, startSyncF
     // Layers have their order. We assume the layer with lower ascii order is the lower layer. e.g. layer1.img > layer2.img > layer3.img
     sort.Strings(layers)
     for _, layer := range layers {
-        layerFile, err := os.OpenFile(path.Join(spec.Root.Path, layer), os.O_RDONLY, 0644)
+        layerFile, err := os.OpenFile(path.Join(args.Spec.Root.Path, layer), os.O_RDONLY, 0644)
         if err != nil {
                 return fmt.Errorf("opening layer file: %v", err)
            }
