@@ -15,7 +15,7 @@
 package imgfs
 
 import (
-	"gvisor.googlesource.com/gvisor/pkg/sentry/device"
+	"gvisor.dev/gvisor/pkg/sentry/device"
 )
 
 // imgfsFileDevice is the host file virtual device.
