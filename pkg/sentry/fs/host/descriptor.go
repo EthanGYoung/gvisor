@@ -16,7 +16,7 @@ package host
 
 import (
 	"fmt"
-	"path"
+	//"path"
 	"syscall"
 
 	"gvisor.dev/gvisor/pkg/fdnotifier"
@@ -85,17 +85,7 @@ func (d *descriptor) initAfterLoad(mo *superOperations, id uint64, queue *waiter
 			return fmt.Errorf("failed to dup restored fd %d: %v", d.origFD, err)
 		}
 	} else {
-		name, ok := mo.inodeMappings[id]
-		if !ok {
-			return fmt.Errorf("failed to find path for inode number %d", id)
-		}
-		fullpath := path.Join(mo.root, name)
-
-		var err error
-		d.value, err = open(nil, fullpath)
-		if err != nil {
-			return fmt.Errorf("failed to open %q: %v", fullpath, err)
-		}
+		d.value = d.origFD
 	}
 	if d.wouldBlock {
 		if err := syscall.SetNonblock(d.value, true); err != nil {

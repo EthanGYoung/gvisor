@@ -164,6 +164,8 @@ type Config struct {
 	// FileAccess indicates how the filesystem is accessed.
 	FileAccess FileAccessType
 
+	ImgPath string
+
 	// Overlay is whether to wrap the root filesystem in an overlay.
 	Overlay bool
 
@@ -186,6 +188,8 @@ type Config struct {
 
 	// LogPackets indicates that all network packets should be logged.
 	LogPackets bool
+
+	PackageFD int
 
 	// Platform is the platform to run on.
 	Platform string
@@ -282,6 +286,12 @@ func (c *Config) ToFlags() []string {
 		"--software-gso=" + strconv.FormatBool(c.SoftwareGSO),
 		"--overlayfs-stale-read=" + strconv.FormatBool(c.OverlayfsStaleRead),
 	}
+
+	// TODO: imgFS deprecated this, I believe
+	if c.ImgPath != "" {
+        f = append(f, "--img-path=" + c.ImgPath)
+	}
+
 	// Only include these if set since it is never to be used by users.
 	if c.TestOnlyAllowRunAsCurrentUserWithoutChroot {
 		f = append(f, "--TESTONLY-unsafe-nonroot=true")

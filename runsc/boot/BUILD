@@ -47,6 +47,7 @@ go_library(
         "//pkg/sentry/fs/ramfs",
         "//pkg/sentry/fs/sys",
         "//pkg/sentry/fs/tmpfs",
+        "//pkg/sentry/fs/imgfs",
         "//pkg/sentry/fs/tty",
         "//pkg/sentry/inet",
         "//pkg/sentry/kernel",

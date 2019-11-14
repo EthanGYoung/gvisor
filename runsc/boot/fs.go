@@ -25,6 +25,7 @@ import (
 
 	// Include filesystem types that OCI spec might mount.
 	_ "gvisor.dev/gvisor/pkg/sentry/fs/dev"
+	_ "gvisor.googlesource.com/gvisor/pkg/sentry/fs/imgfs"
 	_ "gvisor.dev/gvisor/pkg/sentry/fs/host"
 	_ "gvisor.dev/gvisor/pkg/sentry/fs/proc"
 	_ "gvisor.dev/gvisor/pkg/sentry/fs/sys"
@@ -56,6 +57,7 @@ const (
 
 	// Filesystems that runsc supports.
 	bind     = "bind"
+	imgfs	 = "imgfs"
 	devpts   = "devpts"
 	devtmpfs = "devtmpfs"
 	proc     = "proc"
@@ -266,9 +268,44 @@ func addSubmountOverlay(ctx context.Context, inode *fs.Inode, submounts []string
 	return overlayInode, err
 }
 
+// mountExpFS should be executed after root create ramfs stub
+func mountExpFS(ctx context.Context, layerFDs []int, submounts []string) (*fs.Inode, error) {
+       var currentNode *fs.Inode
+
+       if submounts != nil {
+               msrc := fs.NewPseudoMountSource()
+               mountTree, err := ramfs.MakeDirectoryTree(ctx, msrc, submounts)
+               if err != nil {
+                       return nil, fmt.Errorf("creating mount tree: %v", err)
+               }
+               currentNode = mountTree
+       }
+
+       flags := fs.MountSourceFlags{ReadOnly: true}
+       imgFS := mustFindFilesystem("imgfs")
+
+       for index, lfd := range layerFDs {
+               imgfsNode, err := imgFS.Mount(ctx, "imgfs-layer-" + strconv.Itoa(index), flags, "packageFD=" + strconv.Itoa(lfd), nil)
+               if err != nil {
+                       return nil, fmt.Errorf("mounting imgfs layer %v, layerFD %v, err: %v", index, lfd, err)
+               }
+    if currentNode != nil {
+           if currentNode, err = fs.NewOverlayRoot(ctx, imgfsNode, currentNode, flags); err != nil {
+                   return nil, fmt.Errorf("creating imgfs overlay: %v", err)
+      }
+               } else {
+      currentNode = imgfsNode
+    }
+       }
+  if currentNode == nil {
+    return nil, fmt.Errorf("container fs: currentNode is nil")
+  }
+       return currentNode, nil
+}
+
 // subtargets takes a set of Mounts and returns only the targets that are
 // children of the given root. The returned paths are relative to the root.
-func subtargets(root string, mnts []specs.Mount) []string {
+func subtargets(root string, mnts []specs.Mount, layerFDs []int) []string {
 	var targets []string
 	for _, mnt := range mnts {
 		if relPath, isSubpath := fs.IsSubpath(mnt.Destination, root); isSubpath {
@@ -619,7 +656,7 @@ func (c *containerMounter) createMountNamespace(ctx context.Context, conf *Confi
 	return mns, nil
 }
 
-func (c *containerMounter) mountSubmounts(ctx context.Context, conf *Config, mns *fs.MountNamespace) error {
+func (c *containerMounter) mountSubmounts(ctx context.Context, conf *Config, mns *fs.MountNamespace, layerFDs []int) error {
 	root := mns.Root()
 	defer root.DecRef()
 
@@ -630,8 +667,12 @@ func (c *containerMounter) mountSubmounts(ctx context.Context, conf *Config, mns
 				return fmt.Errorf("mount shared mount %q to %q: %v", hint.name, m.Destination, err)
 			}
 		} else {
-			if err := c.mountSubmount(ctx, conf, mns, root, m); err != nil {
-				return fmt.Errorf("mount submount %q: %v", m.Destination, err)
+			_, dirent, err_submount := mountSubmount(ctx, conf, mns, root, fds, m, mounts);
+			if dirent != nil {
+					dirent.DecRef()
+			}
+			if err_submount != nil {
+				return fmt.Errorf("mount submount %q: %v", m.Destination, err_submount)
 			}
 		}
 	}
@@ -640,9 +681,9 @@ func (c *containerMounter) mountSubmounts(ctx context.Context, conf *Config, mns
 		return fmt.Errorf("mount submount %q: %v", "tmp", err)
 	}
 
-	if err := c.checkDispenser(); err != nil {
-		return err
-	}
+	//if err := c.checkDispenser(); err != nil {
+	//	return err
+	//}
 	return nil
 }
 
@@ -695,14 +736,9 @@ func (c *containerMounter) mountSharedMaster(ctx context.Context, conf *Config, 
 }
 
 // createRootMount creates the root filesystem.
-func (c *containerMounter) createRootMount(ctx context.Context, conf *Config) (*fs.Inode, error) {
+func (c *containerMounter) createRootMount(ctx context.Context, conf *Config, layerFDs []int) (*fs.Inode, error) {
 	// First construct the filesystem from the spec.Root.
 	mf := fs.MountSourceFlags{ReadOnly: c.root.Readonly || conf.Overlay}
-
-	fd := c.fds.remove()
-	log.Infof("Mounting root over 9P, ioFD: %d", fd)
-	p9FS := mustFindFilesystem("9p")
-	opts := p9MountOptions(fd, conf.FileAccess)
 
 	if conf.OverlayfsStaleRead {
 		// We can't check for overlayfs here because sandbox is chroot'ed and gofer
@@ -720,10 +756,13 @@ func (c *containerMounter) createRootMount(ctx context.Context, conf *Config) (*
 	// for submount paths.  "/dev" "/sys" "/proc" and "/tmp" are always
 	// mounted even if they are not in the spec.
 	submounts := append(subtargets("/", c.mounts), "/dev", "/sys", "/proc", "/tmp")
-	rootInode, err = addSubmountOverlay(ctx, rootInode, submounts)
+	//rootInode, err = addSubmountOverlay(ctx, rootInode, submounts)
+	rootInode, err = mountExpFS(ctx, layerFDs, submounts)
 	if err != nil {
-		return nil, fmt.Errorf("adding submount overlay: %v", err)
+		return nil, fmt.Errorf("creating root mount point: %v", err)
 	}
+
+	conf.Overlay = true // Force a tmpfs overlay to be created as the root 
 
 	if conf.Overlay && !c.root.Readonly {
 		log.Debugf("Adding overlay on top of root mount")
@@ -769,6 +808,10 @@ func (c *containerMounter) getMountNameAndOptions(conf *Config, m specs.Mount) (
 		// If configured, add overlay to all writable mounts.
 		useOverlay = conf.Overlay && !mountFlags(m.Options).ReadOnly
 
+	case imgfs:
+		fsName = m.Type
+		opts = []string{"packageFD=" + strconv.Itoa(conf.PackageFD)}
+		useOverlay = true // ImgFS will always use overlay
 	default:
 		// TODO(nlacasse): Support all the mount types and make this a fatal error.
 		// Most applications will "just work" without them, so this is a warning
@@ -782,16 +825,16 @@ func (c *containerMounter) getMountNameAndOptions(conf *Config, m specs.Mount) (
 // be readonly, a lower ramfs overlay is added to create the mount point dir.
 // Another overlay is added with tmpfs on top if Config.Overlay is true.
 // 'm.Destination' must be an absolute path with '..' and symlinks resolved.
-func (c *containerMounter) mountSubmount(ctx context.Context, conf *Config, mns *fs.MountNamespace, root *fs.Dirent, m specs.Mount) error {
+func (c *containerMounter) mountSubmount(ctx context.Context, conf *Config, mns *fs.MountNamespace, root *fs.Dirent, m specs.Mount) (*fs.Inode, *fs.Dirent, error) {
 	// Map mount type to filesystem name, and parse out the options that we are
 	// capable of dealing with.
 	fsName, opts, useOverlay, err := c.getMountNameAndOptions(conf, m)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	if fsName == "" {
 		// Filesystem is not supported (e.g. cgroup), just skip it.
-		return nil
+		return nil, nil, nil
 	}
 
 	// All filesystem names should have been mapped to something we know.
@@ -805,7 +848,7 @@ func (c *containerMounter) mountSubmount(ctx context.Context, conf *Config, mns 
 
 	inode, err := filesystem.Mount(ctx, mountDevice(m), mf, strings.Join(opts, ","), nil)
 	if err != nil {
-		return fmt.Errorf("creating mount with source %q: %v", m.Source, err)
+		return nil, nil, fmt.Errorf("creating mount with source %q: %v", m.Source, err)
 	}
 
 	// If there are submounts, we need to overlay the mount on top of a ramfs
@@ -815,7 +858,7 @@ func (c *containerMounter) mountSubmount(ctx context.Context, conf *Config, mns 
 		log.Infof("Adding submount overlay over %q", m.Destination)
 		inode, err = addSubmountOverlay(ctx, inode, submounts)
 		if err != nil {
-			return fmt.Errorf("adding submount overlay: %v", err)
+			return nil, nil, fmt.Errorf("adding submount overlay: %v", err)
 		}
 	}
 
@@ -823,22 +866,22 @@ func (c *containerMounter) mountSubmount(ctx context.Context, conf *Config, mns 
 		log.Debugf("Adding overlay on top of mount %q", m.Destination)
 		inode, err = addOverlay(ctx, conf, inode, m.Type, mf)
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
 	}
 
 	maxTraversals := uint(0)
 	dirent, err := mns.FindInode(ctx, root, root, m.Destination, &maxTraversals)
 	if err != nil {
-		return fmt.Errorf("can't find mount destination %q: %v", m.Destination, err)
+		return nil, nil, fmt.Errorf("can't find mount destination %q: %v", m.Destination, err)
 	}
-	defer dirent.DecRef()
+	//defer dirent.DecRef()
 	if err := mns.Mount(ctx, dirent, inode); err != nil {
-		return fmt.Errorf("mount %q error: %v", m.Destination, err)
+		return nil, nil, fmt.Errorf("mount %q error: %v", m.Destination, err)
 	}
 
 	log.Infof("Mounted %q to %q type %s", m.Source, m.Destination, m.Type)
-	return nil
+	return inode, dirent, nil
 }
 
 // mountSharedSubmount binds mount to a previously mounted volume that is shared
@@ -990,7 +1033,9 @@ func (c *containerMounter) mountTmp(ctx context.Context, conf *Config, mns *fs.M
 			// another user. This is normally done for /tmp.
 			Options: []string{"mode=1777"},
 		}
-		return c.mountSubmount(ctx, conf, mns, root, tmpMount)
+		_, dirent, err_final := c.mountSubmount(ctx, conf, mns, root, tmpMount)
+		defer dirent.DecRef()
+		return err_final
 
 	default:
 		return err
