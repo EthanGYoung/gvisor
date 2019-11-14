@@ -18,8 +18,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 
 	"gvisor.dev/gvisor/pkg/abi/linux"
+	"gvisor.dev/gvisor/pkg/log"
 	"gvisor.dev/gvisor/pkg/sentry/context"
 	"gvisor.dev/gvisor/pkg/sentry/fs"
 	"gvisor.dev/gvisor/pkg/sentry/fs/fsutil"
@@ -29,6 +31,8 @@ import (
 	"gvisor.dev/gvisor/pkg/sentry/safemem"
 	"gvisor.dev/gvisor/pkg/sentry/usermem"
 	"gvisor.dev/gvisor/pkg/syserror"
+	"gvisor.dev/gvisor/pkg/sentry/kernel"
+	"gvisor.dev/gvisor/pkg/sentry/usage"
 )
 // inodeOperations implements fs.InodeOperations for an fs.Inodes backed
 // by a host file descriptor.
@@ -41,6 +45,7 @@ type fileInodeOperations struct {
 	fsutil.InodeNotSocket      `state:"nosave"`
 	fsutil.InodeNotSymlink     `state:"nosave"`
 
+
 	fsutil.InodeSimpleExtendedAttributes
 
 	attr fs.UnstableAttr
@@ -52,6 +57,40 @@ type fileInodeOperations struct {
 	offsetEnd int64
 
 	packageFD int
+
+	// kernel is used to allocate memory that stores the file's contents.
+	kernel *kernel.Kernel
+
+	// memUsage is the default memory usage that will be reported by this file.
+	memUsage usage.MemoryKind
+
+	attrMu sync.Mutex `state:"nosave"`
+
+	mapsMu sync.Mutex `state:"nosave"`
+
+	// writableMappingPages tracks how many pages of virtual memory are mapped
+	// as potentially writable from this file. If a page has multiple mappings,
+	// each mapping is counted separately.
+	//
+	// This counter is susceptible to overflow as we can potentially count
+	// mappings from many VMAs. We count pages rather than bytes to slightly
+	// mitigate this.
+	//
+	// Protected by mapsMu.
+	writableMappingPages uint64
+
+	dataMu sync.RWMutex `state:"nosave"`
+
+	// data maps offsets into the file to offsets into platform.Memory() that
+	// store the file's data.
+	//
+	// data is protected by dataMu.
+	data fsutil.FileRangeSet
+
+	// seals represents file seals on this inode.
+	//
+	// Protected by dataMu.
+	seals uint32
 }
 
 type Symlink struct {
@@ -96,8 +135,14 @@ func (f *fileInodeOperations) Mappable(*fs.Inode) memmap.Mappable {
 }
 
 // Rename implements fs.InodeOperations.Rename.
-func (*fileInodeOperations) Rename(ctx context.Context, oldParent *fs.Inode, oldName string, newParent *fs.Inode, newName string, replacement bool) error {
-	return syserror.EPERM
+func (*fileInodeOperations) Rename(ctx context.Context, inode *fs.Inode, oldParent *fs.Inode, oldName string, newParent *fs.Inode, newName string, replacement bool) error {
+	return rename(ctx, oldParent, oldName, newParent, newName, replacement)
+}
+
+// rename implements fs.InodeOperations.Rename for tmpfs nodes.
+func rename(ctx context.Context, oldParent *fs.Inode, oldName string, newParent *fs.Inode, newName string, replacement bool) error {
+	log.Infof("Called rename, not supported in imgfs")
+	return syserror.EXDEV
 }
 
 // GetFile implements fs.InodeOperations.GetFile.
@@ -239,6 +284,12 @@ func (f *fileInodeOperations) MapInternal(fr platform.FileRange, at usermem.Acce
 	return seq, nil
 }
 
+// Allocate implements fs.InodeOperations.Allocate.
+func (f *fileInodeOperations) Allocate(ctx context.Context, _ *fs.Inode, offset, length int64) error {
+	log.Infof("Calling unimplemented method in imgfs")
+	return nil
+}
+
 // Translate implements memmap.Mappable.Translate.
 func (f *fileInodeOperations) Translate(ctx context.Context, required, optional memmap.MappableRange, at usermem.AccessType) ([]memmap.Translation, error) {
 	return []memmap.Translation{
@@ -267,13 +318,13 @@ func newInode(ctx context.Context, msrc *fs.MountSource, begin int64, end int64,
 		offsetEnd:		end,
 		packageFD:    packageFD,
 	}
-	return fs.NewInode(iops, msrc, sattr), nil
+	return fs.NewInode(ctx, iops, msrc, sattr), nil
 }
 
 // newSymlink returns a new fs.Inode
 func newSymlink(ctx context.Context, msrc *fs.MountSource, target string) *fs.Inode {
 	s := &Symlink{Symlink: *ramfs.NewSymlink(ctx, fs.RootOwner, target)}
-	return fs.NewInode(s, msrc, fs.StableAttr{
+	return fs.NewInode(ctx, s, msrc, fs.StableAttr{
 		DeviceID:  imgfsFileDevice.DeviceID(),
 		InodeID:   imgfsFileDevice.NextIno(),
 		BlockSize: usermem.PageSize,

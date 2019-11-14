@@ -15,6 +15,7 @@
 package imgfs
 
 import (
+	"io"
 	"gvisor.dev/gvisor/pkg/sentry/context"
 	"gvisor.dev/gvisor/pkg/sentry/fs"
 	"gvisor.dev/gvisor/pkg/sentry/fs/fsutil"
@@ -28,13 +29,16 @@ import (
 //
 // +stateify savable
 type regularFileOperations struct {
-	waiter.AlwaysReady       `state:"nosave"`
-	fsutil.FileNoopRelease   `state:"nosave"`
-	fsutil.FileGenericSeek   `state:"nosave"`
-	fsutil.FileNotDirReaddir `state:"nosave"`
-	fsutil.FileNoopFsync     `state:"nosave"`
-	fsutil.FileNoopFlush     `state:"nosave"`
-	fsutil.FileNoIoctl       `state:"nosave"`
+	
+	fsutil.FileNoopRelease          `state:"nosave"`
+	fsutil.FileGenericSeek          `state:"nosave"`
+	fsutil.FileNotDirReaddir        `state:"nosave"`
+	fsutil.FileNoopFsync            `state:"nosave"`
+	fsutil.FileNoopFlush            `state:"nosave"`
+	fsutil.FileNoIoctl              `state:"nosave"`
+	fsutil.FileNoSplice             `state:"nosave"`
+	fsutil.FileUseInodeUnstableAttr `state:"nosave"`
+	waiter.AlwaysReady              `state:"nosave"`
 
 	// iops is the InodeOperations of a regular tmpfs file. It is
 	// guaranteed to be the same as file.Dirent.Inode.InodeOperations,
@@ -55,4 +59,9 @@ func (r *regularFileOperations) Write(ctx context.Context, file *fs.File, src us
 // ConfigureMMap implements fs.FileOperations.ConfigureMMap.
 func (r *regularFileOperations) ConfigureMMap(ctx context.Context, file *fs.File, opts *memmap.MMapOpts) error {
 	return fsutil.GenericConfigureMMap(file, r.iops, opts)
+}
+
+// ReadFrom implements fs.FileOperations.ReadFrom.
+func (r *regularFileOperations) ReadFrom(context.Context, *fs.File, io.Reader, int64) (int64, error) {
+	return 0, syserror.ENOSYS
 }

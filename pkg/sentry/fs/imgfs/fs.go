@@ -31,6 +31,7 @@ import (
 	"gvisor.dev/gvisor/pkg/sentry/fs/ramfs"
 	"gvisor.dev/gvisor/pkg/log"
 	"gvisor.dev/gvisor/pkg/sentry/usermem"
+	
 )
 
 // FilesystemName is the name under which Filesystem is registered.
@@ -121,7 +122,7 @@ func (f *Filesystem) Mount(ctx context.Context, _ string, flags fs.MountSourceFl
 	}
 
 	// Construct img file system mount and inode.
-	msrc := fs.NewCachingMountSource(f, flags)
+	msrc := fs.NewCachingMountSource(ctx, f, flags)
 
 	var s syscall.Stat_t
 	err := syscall.Fstat(int(f.packageFD), &s)
@@ -199,7 +200,7 @@ func MountImgRecursive(ctx context.Context, msrc *fs.MountSource, metadata []fil
 		}
 	}
 	d := ramfs.NewDir(ctx, contents, fs.RootOwner, fs.FilePermsFromMode(linux.FileMode(dirMode)))
-	newinode := fs.NewInode(d, msrc, fs.StableAttr{
+	newinode := fs.NewInode(ctx, d, msrc, fs.StableAttr{
 		DeviceID:  imgfsFileDevice.DeviceID(),
 		InodeID:   imgfsFileDevice.NextIno(),
 		BlockSize: usermem.PageSize,
@@ -207,7 +208,7 @@ func MountImgRecursive(ctx context.Context, msrc *fs.MountSource, metadata []fil
 	})
 
 	for _, fn := range whitoutFiles {
-		newinode.InodeOperations.Setxattr(newinode, fs.XattrOverlayWhiteout(fn), []byte("y"))
+		newinode.InodeOperations.Setxattr(newinode, fs.XattrOverlayWhiteout(fn), string([]byte("y")))
 	}
 	return newinode, nil
 }
