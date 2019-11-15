@@ -20,6 +20,7 @@ import (
 	"gvisor.dev/gvisor/pkg/sentry/fs"
 	"gvisor.dev/gvisor/pkg/sentry/fs/fsutil"
 	"gvisor.dev/gvisor/pkg/waiter"
+	"gvisor.dev/gvisor/pkg/log"
 )
 
 // Symlink represents a symlink.
@@ -79,6 +80,7 @@ func (s *Symlink) Readlink(ctx context.Context, _ *fs.Inode) (string, error) {
 // Getlink returns ErrResolveViaReadlink, falling back to walking to the result
 // of Readlink().
 func (*Symlink) Getlink(context.Context, *fs.Inode) (*fs.Dirent, error) {
+	log.Infof("Getting link in ramfs")
 	return nil, fs.ErrResolveViaReadlink
 }
 

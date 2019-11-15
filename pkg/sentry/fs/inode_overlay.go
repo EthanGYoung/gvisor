@@ -50,6 +50,8 @@ func overlayWriteOut(ctx context.Context, o *overlayEntry) error {
 // If name exists, it returns true if the Dirent is in the upper, false if the
 // Dirent is in the lower.
 func overlayLookup(ctx context.Context, parent *overlayEntry, inode *Inode, name string) (*Dirent, bool, error) {
+	log.Infof("imgfs - looking up in overlay: %v", name)
+	
 	// Hot path. Avoid defers.
 	parent.copyMu.RLock()
 
@@ -68,6 +70,7 @@ func overlayLookup(ctx context.Context, parent *overlayEntry, inode *Inode, name
 
 	// Does the parent directory exist in the upper file system?
 	if parent.upper != nil {
+		log.Infof("The upper fs is: %v", parent.upper.MountSource.FilesystemType)
 		// First check if a file object exists in the upper file system.
 		// A file could have been created over a whiteout, so we need to
 		// check if something exists in the upper file system first.
@@ -123,6 +126,7 @@ func overlayLookup(ctx context.Context, parent *overlayEntry, inode *Inode, name
 	// the lower filesystem (e.g. device number, inode number) that were
 	// visible before a copy up.
 	if parent.lower != nil {
+		log.Infof("The lower fs is: %v", parent.lower.MountSource.FilesystemType)
 		// Check the lower file system.
 		child, err := parent.lower.Lookup(ctx, name)
 		// Same song and dance as above.

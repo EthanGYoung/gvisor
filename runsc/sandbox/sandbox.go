@@ -333,6 +333,7 @@ func (s *Sandbox) connError(err error) error {
 // createSandboxProcess starts the sandbox as a subprocess by running the "boot"
 // command, passing in the bundle dir.
 func (s *Sandbox) createSandboxProcess(conf *boot.Config, args *Args, startSyncFile *os.File) error {
+	log.Infof("imgfs - createSandboxProcess")
 	// nextFD is used to get unused FDs that we can pass to the sandbox.  It
 	// starts at 3 because 0, 1, and 2 are taken by stdin/out/err.
 	nextFD := 3
@@ -443,6 +444,7 @@ func (s *Sandbox) createSandboxProcess(conf *boot.Config, args *Args, startSyncF
 	}
 
 	//Experiemntal Feature: use multiple layers of imgfs to replace gofer.
+	log.Infof("imgfs - reading dir to get img files")
     files, err := ioutil.ReadDir(args.Spec.Root.Path)
     var layers []string
     for _, file := range files {
@@ -455,11 +457,12 @@ func (s *Sandbox) createSandboxProcess(conf *boot.Config, args *Args, startSyncF
     for _, layer := range layers {
         layerFile, err := os.OpenFile(path.Join(args.Spec.Root.Path, layer), os.O_RDONLY, 0644)
         if err != nil {
-                return fmt.Errorf("opening layer file: %v", err)
-           }
+            return fmt.Errorf("opening layer file: %v", err)
+        }
         defer layerFile.Close()
-           cmd.ExtraFiles = append(cmd.ExtraFiles, layerFile)
-           cmd.Args = append(cmd.Args, "--layer-fds="+strconv.Itoa(nextFD))
+        cmd.ExtraFiles = append(cmd.ExtraFiles, layerFile)
+		cmd.Args = append(cmd.Args, "--layer-fds="+strconv.Itoa(nextFD))
+		log.Infof("imgfs - added FD to --layer-fds: %v", nextFD)
         nextFD++
     }
 

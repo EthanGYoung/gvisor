@@ -30,6 +30,7 @@ import (
 	"gvisor.dev/gvisor/pkg/sentry/limits"
 	"gvisor.dev/gvisor/pkg/sentry/usermem"
 	"gvisor.dev/gvisor/pkg/syserror"
+	"gvisor.dev/gvisor/pkg/log"
 )
 
 // fileOpAt performs an operation on the second last component in the path.
@@ -67,6 +68,7 @@ func fileOpOn(t *kernel.Task, dirFD int32, path string, resolve bool, fn func(ro
 		f   *fs.File   // The file corresponding to dirFD (if required.)
 		err error
 	)
+	log.Infof("imgfs - fileOpOn %v", path)
 
 	// Extract the working directory (maybe).
 	if len(path) > 0 && path[0] == '/' {

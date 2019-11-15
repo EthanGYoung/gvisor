@@ -18,6 +18,7 @@ import (
 	"io"
 	"gvisor.dev/gvisor/pkg/sentry/context"
 	"gvisor.dev/gvisor/pkg/sentry/fs"
+	"gvisor.dev/gvisor/pkg/log"
 	"gvisor.dev/gvisor/pkg/sentry/fs/fsutil"
 	"gvisor.dev/gvisor/pkg/sentry/memmap"
 	"gvisor.dev/gvisor/pkg/sentry/usermem"
@@ -48,6 +49,8 @@ type regularFileOperations struct {
 
 // Read implements fs.FileOperations.Read.
 func (r *regularFileOperations) Read(ctx context.Context, file *fs.File, dst usermem.IOSequence, offset int64) (int64, error) {
+	name, _ := file.Dirent.FullName(nil)
+	log.Infof("imgfs - Reading a file now %v", name)
 	return r.iops.read(ctx, file, dst, offset)
 }
 
@@ -63,5 +66,6 @@ func (r *regularFileOperations) ConfigureMMap(ctx context.Context, file *fs.File
 
 // ReadFrom implements fs.FileOperations.ReadFrom.
 func (r *regularFileOperations) ReadFrom(context.Context, *fs.File, io.Reader, int64) (int64, error) {
+	log.Infof("imgfs - ReadFrom not implemented")
 	return 0, syserror.ENOSYS
 }

@@ -160,6 +160,7 @@ func compileMounts(spec *specs.Spec) []specs.Mount {
 
 // p9MountOptions creates a slice of options for a p9 mount.
 func p9MountOptions(fd int, fa FileAccessType) []string {
+	log.Infof("Creating 9p mount options")
 	opts := []string{
 		"trans=fd",
 		"rfdno=" + strconv.Itoa(fd),
@@ -270,37 +271,39 @@ func addSubmountOverlay(ctx context.Context, inode *fs.Inode, submounts []string
 
 // mountExpFS should be executed after root create ramfs stub
 func mountExpFS(ctx context.Context, layerFDs []int, submounts []string) (*fs.Inode, error) {
-       var currentNode *fs.Inode
+	var currentNode *fs.Inode
+	log.Infof("imgfs - mounting imgfs in mountExpFS")
 
-       if submounts != nil {
-               msrc := fs.NewPseudoMountSource(ctx)
-               mountTree, err := ramfs.MakeDirectoryTree(ctx, msrc, submounts)
-               if err != nil {
-                       return nil, fmt.Errorf("creating mount tree: %v", err)
-               }
-               currentNode = mountTree
-       }
+	if submounts != nil {
+			msrc := fs.NewPseudoMountSource(ctx)
+			mountTree, err := ramfs.MakeDirectoryTree(ctx, msrc, submounts)
+			if err != nil {
+					return nil, fmt.Errorf("creating mount tree: %v", err)
+			}
+			currentNode = mountTree
+	}
 
-       flags := fs.MountSourceFlags{ReadOnly: true}
-       imgFS := mustFindFilesystem("imgfs")
+	flags := fs.MountSourceFlags{ReadOnly: true}
+	imgFS := mustFindFilesystem("imgfs")
 
-       for index, lfd := range layerFDs {
-               imgfsNode, err := imgFS.Mount(ctx, "imgfs-layer-" + strconv.Itoa(index), flags, "packageFD=" + strconv.Itoa(lfd), nil)
-               if err != nil {
-                       return nil, fmt.Errorf("mounting imgfs layer %v, layerFD %v, err: %v", index, lfd, err)
-               }
-    if currentNode != nil {
-           if currentNode, err = fs.NewOverlayRoot(ctx, imgfsNode, currentNode, flags); err != nil {
-                   return nil, fmt.Errorf("creating imgfs overlay: %v", err)
-      }
-               } else {
-      currentNode = imgfsNode
-    }
-       }
-  if currentNode == nil {
-    return nil, fmt.Errorf("container fs: currentNode is nil")
-  }
-       return currentNode, nil
+	for index, lfd := range layerFDs {
+			imgfsNode, err := imgFS.Mount(ctx, "imgfs-layer-" + strconv.Itoa(index), flags, "packageFD=" + strconv.Itoa(lfd), nil)
+			if err != nil {
+				return nil, fmt.Errorf("mounting imgfs layer %v, layerFD %v, err: %v", index, lfd, err)
+			}
+		if currentNode != nil {
+		if currentNode, err = fs.NewOverlayRoot(ctx, imgfsNode, currentNode, flags); err != nil {
+				return nil, fmt.Errorf("creating imgfs overlay: %v", err)
+			}
+		} else {
+			currentNode = imgfsNode
+		}
+	}
+		
+	if currentNode == nil {
+		return nil, fmt.Errorf("container fs: currentNode is nil")
+	}
+	return currentNode, nil
 }
 
 // subtargets takes a set of Mounts and returns only the targets that are
@@ -637,7 +640,7 @@ func (c *containerMounter) setupFS(conf *Config, procArgs *kernel.CreateProcessA
 
 	// Set namespace here so that it can be found in rootCtx.
 	rootProcArgs.MountNamespace = mns
-
+	log.Infof("imgfs - About to mount submounts in setupFS")
 	if err := c.mountSubmounts(rootCtx, conf, mns); err != nil {
 		return nil, err
 	}
@@ -649,6 +652,7 @@ func (c *containerMounter) createMountNamespace(ctx context.Context, conf *Confi
 	if err != nil {
 		return nil, fmt.Errorf("creating filesystem for container: %v", err)
 	}
+	log.Infof("imgfs - About to create a new Mount namespace")
 	mns, err := fs.NewMountNamespace(ctx, rootInode)
 	if err != nil {
 		return nil, fmt.Errorf("creating new mount namespace for container: %v", err)
@@ -663,6 +667,7 @@ func (c *containerMounter) mountSubmounts(ctx context.Context, conf *Config, mns
 	for _, m := range c.mounts {
 		log.Debugf("Mounting %q to %q, type: %s, options: %s", m.Source, m.Destination, m.Type, m.Options)
 		if hint := c.hints.findMount(m); hint != nil && hint.isSupported() {
+			log.Infof("imgfs - mounting with hint in mountSubmounts")
 			if err := c.mountSharedSubmount(ctx, mns, root, m, hint); err != nil {
 				return fmt.Errorf("mount shared mount %q to %q: %v", hint.name, m.Destination, err)
 			}
@@ -697,6 +702,7 @@ func (c *containerMounter) checkDispenser() error {
 // mountSharedMaster mounts the master of a volume that is shared among
 // containers in a pod. It returns the root mount's inode.
 func (c *containerMounter) mountSharedMaster(ctx context.Context, conf *Config, hint *mountHint) (*fs.Inode, error) {
+	log.Infof("Mounting shared master")
 	// Map mount type to filesystem name, and parse out the options that we are
 	// capable of dealing with.
 	fsName, opts, useOverlay, err := c.getMountNameAndOptions(conf, hint.mount)
@@ -806,6 +812,7 @@ func (c *containerMounter) getMountNameAndOptions(conf *Config, m specs.Mount) (
 		}
 
 	case bind:
+		log.Infof("imgfs - about to create p9 options")
 		fd := c.fds.remove()
 		fsName = "9p"
 		// Non-root bind mounts are always shared.
@@ -814,6 +821,7 @@ func (c *containerMounter) getMountNameAndOptions(conf *Config, m specs.Mount) (
 		useOverlay = conf.Overlay && !mountFlags(m.Options).ReadOnly
 
 	case imgfs:
+		log.Infof("imgfs - got here in switch")
 		fsName = m.Type
 		opts = []string{"packageFD=" + strconv.Itoa(conf.PackageFD)}
 		useOverlay = true // ImgFS will always use overlay
@@ -833,6 +841,7 @@ func (c *containerMounter) getMountNameAndOptions(conf *Config, m specs.Mount) (
 func (c *containerMounter) mountSubmount(ctx context.Context, conf *Config, mns *fs.MountNamespace, root *fs.Dirent, m specs.Mount) (*fs.Inode, *fs.Dirent, error) {
 	// Map mount type to filesystem name, and parse out the options that we are
 	// capable of dealing with.
+	log.Infof("mounting submount")
 	fsName, opts, useOverlay, err := c.getMountNameAndOptions(conf, m)
 	if err != nil {
 		return nil, nil, err
@@ -917,6 +926,7 @@ func (c *containerMounter) mountSharedSubmount(ctx context.Context, mns *fs.Moun
 // addRestoreMount adds a mount to the MountSources map used for restoring a
 // checkpointed container.
 func (c *containerMounter) addRestoreMount(conf *Config, renv *fs.RestoreEnvironment, m specs.Mount) error {
+	log.Infof("Adding restore mount")
 	fsName, opts, useOverlay, err := c.getMountNameAndOptions(conf, m)
 	if err != nil {
 		return err
@@ -946,6 +956,7 @@ func (c *containerMounter) createRestoreEnvironment(conf *Config) (*fs.RestoreEn
 		MountSources: make(map[string][]fs.MountArgs),
 	}
 
+	log.Infof("imgfs - Creating/restoring enviornement")
 	// Add root mount.
 	fd := c.fds.remove()
 	opts := p9MountOptions(fd, conf.FileAccess)
