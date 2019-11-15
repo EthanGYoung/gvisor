@@ -25,6 +25,7 @@ import (
 	"gvisor.dev/gvisor/pkg/sentry/usage"
 	"gvisor.dev/gvisor/pkg/sentry/usermem"
 	"gvisor.dev/gvisor/pkg/syserror"
+	"gvisor.dev/gvisor/pkg/log"
 )
 
 // existingPMAsLocked checks that pmas exist for all addresses in ar, and
@@ -1003,6 +1004,8 @@ func (pseg pmaIterator) getInternalMappingsLocked() error {
 		perms := pma.maxPerms
 		// We will never execute application code through an internal mapping.
 		perms.Execute = false
+
+		log.Infof("Getting interanl mapping (exectue=false)")
 		ims, err := pma.file.MapInternal(pseg.fileRange(), perms)
 		if err != nil {
 			return err

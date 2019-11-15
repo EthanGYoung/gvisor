@@ -25,7 +25,7 @@ import (
 
 	// Include filesystem types that OCI spec might mount.
 	_ "gvisor.dev/gvisor/pkg/sentry/fs/dev"
-	_ "gvisor.googlesource.com/gvisor/pkg/sentry/fs/imgfs"
+	_ "gvisor.dev/gvisor/pkg/sentry/fs/imgfs"
 	_ "gvisor.dev/gvisor/pkg/sentry/fs/host"
 	_ "gvisor.dev/gvisor/pkg/sentry/fs/proc"
 	_ "gvisor.dev/gvisor/pkg/sentry/fs/sys"

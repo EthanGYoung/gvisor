@@ -33,6 +33,7 @@ go_library(
         "//pkg/sentry/usermem",
         "//pkg/syserror",
         "//pkg/waiter",
+        "//pkg/log",
     ],
 )
 

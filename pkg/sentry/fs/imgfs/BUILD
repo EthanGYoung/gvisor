@@ -13,7 +13,7 @@ go_library(
         "util.go",
         "util_unsafe.go",
     ],
-    importpath = "gvisor.googlesource.com/gvisor/pkg/sentry/fs/imgfs",
+    importpath = "gvisor.dev/gvisor/pkg/sentry/fs/imgfs",
     visibility = ["//pkg/sentry:internal"],
     deps = [
         "//pkg/abi/linux",
@@ -23,6 +23,7 @@ go_library(
         "//pkg/metric",
         "//pkg/refs",
         "//pkg/secio",
+        "//pkg/filter",
         "//pkg/sentry/arch",
         "//pkg/sentry/context",
         "//pkg/sentry/device",

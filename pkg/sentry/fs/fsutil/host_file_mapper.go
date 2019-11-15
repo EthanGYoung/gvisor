@@ -122,6 +122,7 @@ func (f *HostFileMapper) DecRefOn(mr memmap.MappableRange) {
 //
 // Preconditions: The caller must hold a reference on all offsets in fr.
 func (f *HostFileMapper) MapInternal(fr platform.FileRange, fd int, write bool) (safemem.BlockSeq, error) {
+	log.Infof("Mapping internally from host")
 	chunks := ((fr.End + chunkMask) >> chunkShift) - (fr.Start >> chunkShift)
 	f.mapsMu.Lock()
 	defer f.mapsMu.Unlock()

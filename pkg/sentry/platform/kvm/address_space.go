@@ -22,6 +22,7 @@ import (
 	"gvisor.dev/gvisor/pkg/sentry/platform"
 	"gvisor.dev/gvisor/pkg/sentry/platform/ring0/pagetables"
 	"gvisor.dev/gvisor/pkg/sentry/usermem"
+	"gvisor.dev/gvisor/pkg/log"
 )
 
 // dirtySet tracks vCPUs for invalidation.
@@ -157,7 +158,6 @@ func (as *addressSpace) mapHost(addr usermem.Addr, m hostMapEntry, at usermem.Ac
 func (as *addressSpace) MapFile(addr usermem.Addr, f platform.File, fr platform.FileRange, at usermem.AccessType, precommit bool) error {
 	as.mu.Lock()
 	defer as.mu.Unlock()
-
 	// Get mappings in the sentry's address space, which are guaranteed to be
 	// valid as long as a reference is held on the mapped pages (which is in
 	// turn required by AddressSpace.MapFile precondition).
@@ -168,6 +168,7 @@ func (as *addressSpace) MapFile(addr usermem.Addr, f platform.File, fr platform.
 	// We don't execute from application file-mapped memory, and guest page
 	// tables don't care if we have execute permission (but they do need pages
 	// to be readable).
+	log.Infof("Direct map of file")
 	bs, err := f.MapInternal(fr, usermem.AccessType{
 		Read:  at.Read || at.Execute || precommit,
 		Write: at.Write,

@@ -32,6 +32,7 @@ import (
 	"gvisor.dev/gvisor/pkg/sentry/usage"
 	"gvisor.dev/gvisor/pkg/sentry/usermem"
 	"gvisor.dev/gvisor/pkg/syserror"
+	"gvisor.dev/gvisor/pkg/log"
 )
 
 var (
@@ -398,6 +399,7 @@ func (rw *fileReadWriter) ReadToBlocks(dsts safemem.BlockSeq) (uint64, error) {
 		mr := memmap.MappableRange{uint64(rw.offset), uint64(end)}
 		switch {
 		case seg.Ok():
+			log.Infof("Get internal mappings to tmpfs")
 			// Get internal mappings.
 			ims, err := mf.MapInternal(seg.FileRangeOf(seg.Range().Intersect(mr)), usermem.Read)
 			if err != nil {
@@ -498,6 +500,7 @@ func (rw *fileReadWriter) WriteFromBlocks(srcs safemem.BlockSeq) (uint64, error)
 		mr := memmap.MappableRange{uint64(rw.offset), uint64(end)}
 		switch {
 		case seg.Ok():
+			log.Infof("Mapping internally for write")
 			// Get internal mappings.
 			ims, err := mf.MapInternal(seg.FileRangeOf(seg.Range().Intersect(mr)), usermem.Write)
 			if err != nil {

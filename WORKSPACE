@@ -164,6 +164,12 @@ go_repository(
 )
 
 go_repository(
+    name = "com_github_spaolacci_murmur3",
+    importpath = "github.com/spaolacci/murmur3",
+    commit = "539464a789e9b9f01bc857458ffe2c5c1a2ed382",
+)
+
+go_repository(
     name = "org_golang_x_crypto",
     importpath = "golang.org/x/crypto",
     sum = "h1:VklqNMn3ovrHsnt90PveolxSbWFaJdECFbxSq0Mqo2M=",

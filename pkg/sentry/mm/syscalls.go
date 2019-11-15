@@ -27,6 +27,7 @@ import (
 	"gvisor.dev/gvisor/pkg/sentry/pgalloc"
 	"gvisor.dev/gvisor/pkg/sentry/usermem"
 	"gvisor.dev/gvisor/pkg/syserror"
+	"gvisor.dev/gvisor/pkg/log"
 )
 
 // HandleUserFault handles an application page fault. sp is the faulting
@@ -49,6 +50,7 @@ func (mm *MemoryManager) HandleUserFault(ctx context.Context, addr usermem.Addr,
 	vseg, _, err := mm.getVMAsLocked(ctx, ar, at, false)
 	if err != nil {
 		mm.mappingMu.RUnlock()
+		log.Infof("getVMAsLocked returned error")
 		return err
 	}
 
@@ -58,6 +60,7 @@ func (mm *MemoryManager) HandleUserFault(ctx context.Context, addr usermem.Addr,
 	mm.mappingMu.RUnlock()
 	if err != nil {
 		mm.activeMu.Unlock()
+		log.Infof("getPMAsLocked returned error")
 		return err
 	}
 
@@ -68,11 +71,13 @@ func (mm *MemoryManager) HandleUserFault(ctx context.Context, addr usermem.Addr,
 	// Map the faulted page into the active AddressSpace.
 	err = mm.mapASLocked(pseg, ar, false)
 	mm.activeMu.RUnlock()
+	//log.Infof("Map as locked returned err")
 	return err
 }
 
 // MMap establishes a memory mapping.
 func (mm *MemoryManager) MMap(ctx context.Context, opts memmap.MMapOpts) (usermem.Addr, error) {
+	log.Infof("MMap called by application")
 	if opts.Length == 0 {
 		return 0, syserror.EINVAL
 	}
@@ -714,6 +719,7 @@ func (mm *MemoryManager) BrkSetup(ctx context.Context, addr usermem.Addr) {
 // Brk implements the semantics of Linux's brk(2), except that it returns an
 // error on failure.
 func (mm *MemoryManager) Brk(ctx context.Context, addr usermem.Addr) (usermem.Addr, error) {
+	log.Infof("Executing BRK sys call")
 	mm.mappingMu.Lock()
 	// Can't defer mm.mappingMu.Unlock(); see below.
 

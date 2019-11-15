@@ -12,6 +12,12 @@ build:
 	bazel build runsc
 	sudo cp ./bazel-bin/runsc/linux_amd64_pure_stripped/runsc /usr/local/bin
 
+build_debug:
+	sudo rm -rf /tmp/runsc
+	bazel build -c dbg runsc
+	sudo cp ./bazel-bin/runsc/linux_amd64_pure_debug/runsc /usr/local/bin
+	
+
 docker:
 	sudo apt-get update
 	sudo apt-get -y install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
