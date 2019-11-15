@@ -16,6 +16,7 @@ package fs
 
 import (
 	"sync"
+	"strings"
 
 	"gvisor.dev/gvisor/pkg/abi/linux"
 	"gvisor.dev/gvisor/pkg/log"
@@ -65,6 +66,115 @@ type Inode struct {
 	appendMu sync.RWMutex `state:"nosave"`
 }
 
+// TESTING BFS
+func (i *Inode) CheckOverlay(path string) (*Inode)  {
+	// Base case (No more overlays)
+	if (i.overlay == nil) {
+		return i
+	}
+
+	u := i.overlay.upper
+	l := i.overlay.lower
+
+	if (u != nil) {
+		log.Infof("Upper in msrc: " + u.MountSource.name)
+		if (strings.Contains(u.MountSource.name, "imgfs")) {
+			i.overlay.bf_check = true
+			if (!CheckBF(u, path)) {
+				// Path not in layer
+				// TODO: Does this erase for subsequent lookups, too? Like will all other lookups in root not check this layer
+				//		- Possibly, need to manipulate the dirents (in-mem) and not the inodes
+				//		- YES
+				i.overlay.traverse = false
+			} else {
+				i.overlay.traverse = true
+			}
+		}
+	}
+	if (l != nil) {
+		log.Infof("Lower in msrc: " + l.MountSource.name)
+		// Recursively create tree
+		i.overlay.lower = l.CheckOverlay(path)
+	}
+	if (u == nil && l == nil) {
+		log.Infof("Both msrc is nil")
+	}
+
+	log.Infof("Returning from CheckOverlay")
+
+	return i
+}
+
+func CheckBF(i *Inode, path string) (bool) {
+	bf := i.MountSource.BloomFilter
+	log.Infof("TRACE-bf_lookup-" + i.MountSource.name)
+
+	if (bf.TestElement([]byte(path))) {
+		log.Infof("Found in upper BF")
+	}
+
+	return bf.TestElement([]byte(path))
+}
+
+func CheckBFLayer(i *Inode, path string) (bool) {
+	if (i.overlay == nil) {
+		return false
+	}
+	return CheckBF(i.overlay.upper, path)
+}
+
+// ASSUMING THAT ONCE FOUND, RETURNED IMMEDIATELY
+// NOT GRABBING ATTR FROM LOWER IF FOUND IN ORIGINAL UPPER
+
+// TODO: Figure out how to use the children of each inode -> I don't think this method does this
+func (i *Inode) HorizontalTraverse(ctx context.Context, root *Dirent) []*Dirent {
+	var layers []*Dirent
+	var upper = false
+	var tmp *Inode
+
+	log.Infof("HorizontalTraverse")
+
+	curr := i.overlay.lower
+	pseudo := NewInode(ctx, curr.InodeOperations, NewPseudoMountSource(ctx), curr.StableAttr) // Inode used as lower on all, which is not used (not overlay)
+	
+	//pseudo.overlay = nil
+	// Assuming atleast upper or lower, check later
+	for {
+		
+		// While case
+		if (curr.overlay == nil || curr.overlay.lower == nil || (!upper && root.Inode.overlay.upper == nil)) {
+			log.Infof("Breaking from traversal")
+			//log.Infof("Breaking from traversal. First: %v, second: %v, third: %v", curr.overlay.lower, upper, root.Inode.overlay.upper)
+			break
+		}
+
+		log.Infof("About to check overlay")
+		// Do case
+		if (root.Inode.overlay.upper != nil && !upper) {
+			log.Infof("Checking upper horizontally")
+			//tmp = NewPseudoOverlayInode(ctx, i.overlay.upper, root.Inode.MountSource)
+			tmp = NewPseudoOverlayInode(ctx, pseudo, root.Inode.MountSource)
+			tmp.overlay.upper = i.overlay.upper
+			tmp.overlay.lower = nil
+			upper = true 
+		} else {
+			log.Infof("Checking lower horizontally")
+			//tmp = NewPseudoOverlayInode(ctx, curr.overlay.upper, root.Inode.MountSource)
+			tmp = NewPseudoOverlayInode(ctx, pseudo, root.Inode.MountSource)
+			tmp.overlay.upper = curr.overlay.upper
+			tmp.overlay.lower = nil
+			// d = tmp.lookupLayer(t, ctx, NewDirent(tmp, root.name), wd, path, remainingTraversals, resolve)	
+			curr = curr.overlay.lower
+		}
+
+		log.Infof("Creating new dirent")
+		layers = append(layers, NewDirent(ctx, tmp, root.name)) 
+		log.Infof("Dirent created")
+	}
+	log.Infof("About to return from Horizontal")
+	return layers
+
+}
 // LockCtx is an Inode's lock context and contains different personalities of locks; both
 // Posix and BSD style locks are supported.
 //

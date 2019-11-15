@@ -20,6 +20,7 @@ import (
 	"sync/atomic"
 
 	"gvisor.dev/gvisor/pkg/refs"
+	"gvisor.dev/gvisor/pkg/filter"
 	"gvisor.dev/gvisor/pkg/sentry/context"
 )
 
@@ -125,6 +126,12 @@ type MountSource struct {
 	//
 	// direntRefs must be atomically changed.
 	direntRefs uint64
+	
+	// Name of this mount -> Often the layer name for debugging
+	name string
+
+	// BloomFilter for this layer
+	BloomFilter filter.BloomFilter
 }
 
 // DefaultDirentCacheSize is the number of Dirents that the VFS can hold an

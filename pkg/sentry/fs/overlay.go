@@ -203,6 +203,11 @@ type overlayEntry struct {
 
 	// dirCache is cache of DentAttrs from upper and lower Inodes.
 	dirCache *SortedDentryMap
+
+	bf_check bool
+
+	traverse bool
+
 }
 
 // newOverlayEntry returns a new overlayEntry.
@@ -250,6 +255,12 @@ func (o *overlayEntry) release() {
 // not call DecRef on it.
 func overlayUpperMountSource(overlayMountSource *MountSource) *MountSource {
 	return overlayMountSource.MountSourceOperations.(*overlayMountSourceOperations).upper
+}
+
+func NewPseudoOverlayInode(ctx context.Context, lower *Inode, msrc *MountSource) *Inode {
+
+	o, _ := newOverlayEntry(ctx, nil, lower, true)
+	return newOverlayInode(ctx, o, msrc) 
 }
 
 // Preconditions: At least one of o.copyMu, o.mapsMu, or o.dataMu must be locked.

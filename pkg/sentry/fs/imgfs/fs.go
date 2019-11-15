@@ -98,8 +98,7 @@ func (*Filesystem) Flags() fs.FilesystemFlags {
 
 // Mount returns an fs.Inode exposing the host file system.  It is intended to be locked
 // down in PreExec below.
-func (f *Filesystem) Mount(ctx context.Context, _ string, flags fs.MountSourceFlags, data string, _ interface{}) (*fs.Inode, error) {
-	layer := "Test layer name"
+func (f *Filesystem) Mount(ctx context.Context, layer string, flags fs.MountSourceFlags, data string, _ interface{}) (*fs.Inode, error) {
 	log.Infof("Mounting imgfs root for layer: %v", layer)
 
 	// Parse generic comma-separated key=value options.
@@ -150,15 +149,13 @@ func (f *Filesystem) Mount(ctx context.Context, _ string, flags fs.MountSourceFl
 
 	// Decode Filter Metadata and read in filter
 	filtMetadata := processFilterHeader(mmap, length)
-	_, length = readFilter(mmap, filtMetadata)
+	bf, length := readFilter(mmap, filtMetadata)
 
-	// TODO: Update fs struct with filter
-	//log.Infof("Adding BF to layer: " + layer)
-	//msrc.BloomFilter = bf
+	log.Infof("Adding BF to layer: " + layer)
+	msrc.BloomFilter = bf
 
 	// Decode file metadata and read in files
 	filMetadata := processFileHeader(mmap, length)
-	//readFiles(mmap, fileMetadata, detail)
 
 	i := 0 // What is this for?
 	return MountImgRecursive(ctx, msrc, filMetadata, os.ModeDir | 0555, mmap, f.packageFD, &i, len(filMetadata), layer)
@@ -263,15 +260,15 @@ func processFilterHeader(mmap []byte, length int) (filter.FilterMetadata) {
 func getHeaderLocation(mmap []byte, length int) (int64) {
 	// Filter header location is specifed by int64 at last 10 bits (bytes?)
 	headerLoc := mmap[length - 10 : length]
-	fmt.Println("header data:", headerLoc)
+	log.Infof("header data:", headerLoc)
 
 	// Setup reader for header data
 	headerReader := bytes.NewReader(headerLoc)
 	n, err := binary.ReadVarint(headerReader)
 	if err != nil {
-		fmt.Errorf("can't read header location, err: %v", err)
+		log.Infof("can't read header location, err: %v", err)
 	}
-	fmt.Printf("headerLoc: %v bytes\n", n)
+	log.Infof("headerLoc: %v bytes\n", n)
 
 	return n
 }

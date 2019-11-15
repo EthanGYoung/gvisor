@@ -330,6 +330,33 @@ func (s *Sandbox) connError(err error) error {
 	return fmt.Errorf("connecting to control server at PID %d: %v", s.Pid, err)
 }
 
+
+// Used for sorting the layers
+type byImg []string
+
+func (b byImg) Len() int {
+	return len(b)
+}
+
+func (b byImg) Swap(i, j int) {
+	b[i], b[j] = b[j], b[i]
+}
+
+func (b byImg) Less(i, j int) bool {
+	str1 := strings.Split(b[i], "/")
+	str2 := strings.Split(b[j], "/")
+
+	l_str1 := strings.Split(str1[len(str1)-1], ".")[0]
+	l_str2 := strings.Split(str2[len(str2)-1], ".")[0]
+
+	int1, _ := strconv.Atoi(l_str1)
+	int2, _ := strconv.Atoi(l_str2)
+
+	return int1 < int2
+
+}
+
+
 // createSandboxProcess starts the sandbox as a subprocess by running the "boot"
 // command, passing in the bundle dir.
 func (s *Sandbox) createSandboxProcess(conf *boot.Config, args *Args, startSyncFile *os.File) error {
@@ -453,7 +480,7 @@ func (s *Sandbox) createSandboxProcess(conf *boot.Config, args *Args, startSyncF
         }
     }
     // Layers have their order. We assume the layer with lower ascii order is the lower layer. e.g. layer1.img > layer2.img > layer3.img
-    sort.Strings(layers)
+    sort.Sort(byImg(layers))
     for _, layer := range layers {
         layerFile, err := os.OpenFile(path.Join(args.Spec.Root.Path, layer), os.O_RDONLY, 0644)
         if err != nil {
