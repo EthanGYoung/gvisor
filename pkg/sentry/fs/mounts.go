@@ -475,7 +475,6 @@ func (mns *MountNamespace) FindLink(ctx context.Context, root, wd *Dirent, path 
 		panic("MountNamespace.FindLink: path is empty")
 	}
 	
-	log.Infof("Finding link in mountspace for path: %v", path)
 
 	// Split the path.
 	first, remainder := SplitFirst(path)
@@ -534,7 +533,6 @@ func (mns *MountNamespace) FindLink(ctx context.Context, root, wd *Dirent, path 
 		current.DecRef()
 
 		if remainder != "" {
-			log.Infof("About to resolve last stage")
 			// Ensure it's resolved, unless it's the last level.
 			//
 			// See resolve for reference semantics; on err next
@@ -594,7 +592,6 @@ func (mns *MountNamespace) resolve(ctx context.Context, root, node *Dirent, rema
 		return target, nil
 
 	case syscall.ENOLINK:
-		log.Infof("Not sym")
 		// Not a symlink.
 		return node, nil
 
@@ -612,7 +609,6 @@ func (mns *MountNamespace) resolve(ctx context.Context, root, node *Dirent, rema
 			return nil, err
 		}
 
-		log.Infof("targetPath: " + targetPath)
 
 		// Find the node; we resolve relative to the current symlink's parent.
 		*remainingTraversals--

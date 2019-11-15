@@ -107,7 +107,6 @@ func NewImgReader(f *fileInodeOperations, offset int64) *ImgReader {
 }
 
 func (r *ImgReader) ReadToBlocks(dsts safemem.BlockSeq) (uint64, error) {
-	log.Infof("Reading to blocks in imgfs")
 	if r.offset >= r.f.attr.Size {
 		return 0, io.EOF
 	}
@@ -117,7 +116,6 @@ func (r *ImgReader) ReadToBlocks(dsts safemem.BlockSeq) (uint64, error) {
 	}
 	src := safemem.BlockSeqOf(safemem.BlockFromSafeSlice(r.f.mapArea[r.f.offsetBegin + r.offset:r.f.offsetEnd]))
 	n, err := safemem.CopySeq(dsts, src)
-	log.Infof("Reading successful")
 	return n, err
 }
 
@@ -199,13 +197,11 @@ func (*fileInodeOperations) IsVirtual() bool {
 }
 
 // StatFS implements fs.InodeOperations.StatFS.
-// TODO: fix fsInfo
 func (*fileInodeOperations) StatFS(context.Context) (fs.Info, error) {
 	return fsInfo, nil
 }
 
 func (f *fileInodeOperations) read(ctx context.Context, file *fs.File, dst usermem.IOSequence, offset int64) (int64, error) {
-	log.Infof("Reading from imgfs file")
 	if dst.NumBytes() == 0 {
 		return 0, nil
 	}
@@ -220,7 +216,6 @@ func (f *fileInodeOperations) read(ctx context.Context, file *fs.File, dst userm
 }
 
 // AddMapping implements memmap.Mappable.AddMapping.
-// TODO: add mapping support
 func (f *fileInodeOperations) AddMapping(ctx context.Context, ms memmap.MappingSpace, ar usermem.AddrRange, offset uint64, writable bool) error {
 	// Hot path. Avoid defers.
 	f.mapsMu.Lock()
@@ -231,7 +226,6 @@ func (f *fileInodeOperations) AddMapping(ctx context.Context, ms memmap.MappingS
 
 // RemoveMapping implements memmap.Mappable.RemoveMapping.
 func (f *fileInodeOperations) RemoveMapping(ctx context.Context, ms memmap.MappingSpace, ar usermem.AddrRange, offset uint64, writable bool) {
-	log.Infof("Removing Mapping")
 	// Hot path. Avoid defers.
 	f.mapsMu.Lock()
 	_ = f.mappings.RemoveMapping(ms, ar, offset, writable)
@@ -240,20 +234,15 @@ func (f *fileInodeOperations) RemoveMapping(ctx context.Context, ms memmap.Mappi
 
 // CopyMapping implements memmap.Mappable.CopyMapping.
 func (f *fileInodeOperations) CopyMapping(ctx context.Context, ms memmap.MappingSpace, srcAR, dstAR usermem.AddrRange, offset uint64, writable bool) error {
-	log.Infof("Copying Mapping")
 	return f.AddMapping(ctx, ms, dstAR, offset, writable)
-	// f.mappings.AddMapping(ctx, ms, dstAR, offset, false /* writeable */)
-	//return nil
 }
 
 // IncRef implements platform.File.IncRef.
 func (f *fileInodeOperations) IncRef(fr platform.FileRange) {
-	log.Infof("IncRef not implemented")
 }
 
 // DecRef implements platform.File.DecRef.
 func (f *fileInodeOperations) DecRef(fr platform.FileRange) {
-	log.Infof("DecRef not implemented")
 }
 
 func (f *fileInodeOperations) FD() int {
@@ -261,7 +250,6 @@ func (f *fileInodeOperations) FD() int {
 }
 
 func (f *fileInodeOperations) MapInternal(fr platform.FileRange, at usermem.AccessType) (safemem.BlockSeq, error) {
-	log.Infof("Mapping internally: %v", at)
   	const pagesize = uint64(4096)
 	
 	if !fr.WellFormed() || fr.Length() == 0 {
@@ -286,35 +274,19 @@ func (f *fileInodeOperations) MapInternal(fr platform.FileRange, at usermem.Acce
 
 	if unsafeEnd > boundary {
 		unsafeEnd = boundary
-		//panic(fmt.Sprintf("invalid unsafeEnd: %v, current boundary: %v, unsafeBegin: %v, unsafeEnd: %v, fr.Start: %v, fr.End: %v, f.offsetBegin: %v, f.offsetEnd: %v\n", unsafeEnd, boundary, unsafeBegin, unsafeEnd, fr.Start, fr.End, f.offsetBegin, f.offsetEnd))
 	}
-
-	/*
-	if unsafeBegin > uint64(f.offsetEnd) {
-		return safemem.BlockSeq{}, syserror.EACCES
-	}
-
-	if unsafeEnd > uint64(f.offsetEnd) {
-		unsafeEnd = uint64(f.offsetEnd)
-	}
-	*/
-	log.Infof("Length of mapArea: %v, Amount to take: %v", len(f.mapArea), (unsafeEnd-unsafeBegin))
+	
 	seq := safemem.BlockSeqOf(safemem.BlockFromSafeSlice(f.mapArea[unsafeBegin:unsafeEnd]))
 	return seq, nil
 }
 
 // Allocate implements fs.InodeOperations.Allocate.
 func (f *fileInodeOperations) Allocate(ctx context.Context, _ *fs.Inode, offset, length int64) error {
-	log.Infof("Calling unimplemented method in imgfs")
 	return nil
 }
 
 // Translate implements memmap.Mappable.Translate.
 func (f *fileInodeOperations) Translate(ctx context.Context, required, optional memmap.MappableRange, at usermem.AccessType) ([]memmap.Translation, error) {
-	log.Infof("Translating, optional: %v", optional)
-	log.Infof("Translating, required: %v", required)
-
-
 	return []memmap.Translation{
 		{
 			Source: optional,

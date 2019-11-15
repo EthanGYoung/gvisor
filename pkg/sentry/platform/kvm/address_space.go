@@ -22,7 +22,6 @@ import (
 	"gvisor.dev/gvisor/pkg/sentry/platform"
 	"gvisor.dev/gvisor/pkg/sentry/platform/ring0/pagetables"
 	"gvisor.dev/gvisor/pkg/sentry/usermem"
-	"gvisor.dev/gvisor/pkg/log"
 )
 
 // dirtySet tracks vCPUs for invalidation.
@@ -168,7 +167,6 @@ func (as *addressSpace) MapFile(addr usermem.Addr, f platform.File, fr platform.
 	// We don't execute from application file-mapped memory, and guest page
 	// tables don't care if we have execute permission (but they do need pages
 	// to be readable).
-	log.Infof("Direct map of file")
 	bs, err := f.MapInternal(fr, usermem.AccessType{
 		Read:  at.Read || at.Execute || precommit,
 		Write: at.Write,

@@ -497,7 +497,6 @@ func (f *MemoryFile) AllocateAndFill(length uint64, kind usage.MemoryKind, r saf
 		return platform.FileRange{}, err
 	}
 
-	log.Infof("Mapping by allocateing and filling")
 	dsts, err := f.MapInternal(fr, usermem.Write)
 	if err != nil {
 		f.DecRef(fr)
@@ -627,7 +626,6 @@ func (f *MemoryFile) DecRef(fr platform.FileRange) {
 
 // MapInternal implements platform.File.MapInternal.
 func (f *MemoryFile) MapInternal(fr platform.FileRange, at usermem.AccessType) (safemem.BlockSeq, error) {
-	log.Infof("Map internal in pgalloc")
 	if !fr.WellFormed() || fr.Length() == 0 {
 		panic(fmt.Sprintf("invalid range: %v", fr))
 	}

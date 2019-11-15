@@ -25,7 +25,6 @@ import (
 	"gvisor.dev/gvisor/pkg/sentry/memmap"
 	"gvisor.dev/gvisor/pkg/sentry/usermem"
 	"gvisor.dev/gvisor/pkg/syserror"
-	"gvisor.dev/gvisor/pkg/log"
 )
 
 // Preconditions: mm.mappingMu must be locked for writing. opts must be valid
@@ -267,7 +266,6 @@ func (mm *MemoryManager) getVMAsLocked(ctx context.Context, ar usermem.AddrRange
 
 	// Inline mm.vmas.LowerBoundSegment so that we have the preceding gap if
 	// !vbegin.Ok().
-	log.Infof("Testing vma with start: %v", ar.Start)
 	vbegin, vgap := mm.vmas.Find(ar.Start)
 	if !vbegin.Ok() {
 		vbegin = vgap.NextSegment()
@@ -282,7 +280,6 @@ func (mm *MemoryManager) getVMAsLocked(ctx context.Context, ar usermem.AddrRange
 		// Loop invariants: vgap = vseg.PrevGap(); addr < vseg.End().
 		vma := vseg.ValuePtr()
 		if addr < vseg.Start() {
-			log.Infof("addr < vseg start: %v < %v", addr, vseg.Start())
 			// TODO(jamieliu): Implement vma.growsDown here.
 			return vbegin, vgap, syserror.EFAULT
 		}
@@ -293,7 +290,6 @@ func (mm *MemoryManager) getVMAsLocked(ctx context.Context, ar usermem.AddrRange
 		}
 		
 		if !perms.SupersetOf(at) {
-			log.Infof("perm superset issue")
 			return vbegin, vgap, syserror.EPERM
 		}
 
@@ -305,7 +301,6 @@ func (mm *MemoryManager) getVMAsLocked(ctx context.Context, ar usermem.AddrRange
 		vseg = vgap.NextSegment()
 	}
 
-	log.Infof("Out of vmas")
 	// Ran out of vmas before ar.End.
 	return vbegin, vgap, syserror.EFAULT
 }

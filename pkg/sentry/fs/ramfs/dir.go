@@ -26,7 +26,6 @@ import (
 	"gvisor.dev/gvisor/pkg/sentry/fs/fsutil"
 	"gvisor.dev/gvisor/pkg/sentry/socket/unix/transport"
 	"gvisor.dev/gvisor/pkg/syserror"
-	"gvisor.dev/gvisor/pkg/log"
 )
 
 // CreateOps represents operations to create different file types.
@@ -259,7 +258,6 @@ func (d *Dir) RemoveDirectory(ctx context.Context, _ *fs.Inode, name string) err
 // Lookup loads an inode at p into a Dirent. It returns the fs.Dirent along
 // with a reference.
 func (d *Dir) Lookup(ctx context.Context, _ *fs.Inode, p string) (*fs.Dirent, error) {
-	log.Infof("Lookup in ramfs occurring for " + p)
 
 	if len(p) > linux.NAME_MAX {
 		return nil, syserror.ENAMETOOLONG
