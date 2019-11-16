@@ -94,7 +94,8 @@ func fileOpOn(t *kernel.Task, dirFD int32, path string, resolve bool, fn func(ro
 	root := t.FSContext().RootDirectory()
 
 	// Update root with BF results
-	if (strings.Contains(path, "img") && true) {
+	if (false) {
+	//if (strings.Contains(path, "img") && false) {
 		// TODO: Change this to return a dirent or just change to modify root (use is subsequent steps)
 		bfTest(path, root)
 	}
@@ -103,7 +104,8 @@ func fileOpOn(t *kernel.Task, dirFD int32, path string, resolve bool, fn func(ro
 	// Implement horizontal search
 	if (strings.Contains(path, "img") && false) {
 		d = horizontalTraverse(t, t, root, rel, path, resolve, &remainingTraversals, false)
-	} else if (strings.Contains(path, "img") && false) {
+	} else if (true) {
+	//} else if (strings.Contains(path, "img") && true) {
 		// Both horizontal and BF
 		d = horizontalTraverse(t, t, root, rel, path, resolve, &remainingTraversals, true)
 	} else {
