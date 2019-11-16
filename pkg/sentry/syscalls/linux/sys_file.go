@@ -69,7 +69,7 @@ func fileOpOn(t *kernel.Task, dirFD int32, path string, resolve bool, fn func(ro
 		f   *fs.File   // The file corresponding to dirFD (if required.)
 		err error
 	)
-	log.Infof("imgfs - fileOpOn %v", path)
+	log.Infof("TRACE-Original_Path-" + path)
 
 	// Extract the working directory (maybe).
 	if len(path) > 0 && path[0] == '/' {
@@ -94,7 +94,7 @@ func fileOpOn(t *kernel.Task, dirFD int32, path string, resolve bool, fn func(ro
 	root := t.FSContext().RootDirectory()
 
 	// Update root with BF results
-	if (strings.Contains(path, "img") && false) {
+	if (strings.Contains(path, "img") && true) {
 		// TODO: Change this to return a dirent or just change to modify root (use is subsequent steps)
 		bfTest(path, root)
 	}

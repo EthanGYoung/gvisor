@@ -361,6 +361,7 @@ func (i *Inode) GetFile(ctx context.Context, d *Dirent, flags FileFlags) (*File,
 		return overlayGetFile(ctx, i.overlay, d, flags)
 	}
 	opens.Increment()
+	log.Infof("TRACE-get_file-" + d.Inode.MountSource.name)
 	return i.InodeOperations.GetFile(ctx, d, flags)
 }
 

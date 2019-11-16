@@ -77,7 +77,7 @@ func addOverlay(ctx context.Context, conf *Config, lower *fs.Inode, name string,
 	tmpFS := mustFindFilesystem("tmpfs")
 	if !fs.IsDir(lower.StableAttr) {
 		// Create overlay on top of mount file, e.g. /etc/hostname.
-		msrc := fs.NewCachingMountSource(ctx, tmpFS, upperFlags)
+		msrc := fs.NewCachingMountSource(ctx, tmpFS, upperFlags, "tmpfs")
 		return fs.NewOverlayRootFile(ctx, msrc, lower, upperFlags)
 	}
 
@@ -257,7 +257,7 @@ func addSubmountOverlay(ctx context.Context, inode *fs.Inode, submounts []string
 	// change, so this can be fully caching. There's no real
 	// filesystem backing this tree, so we set the filesystem to
 	// nil.
-	msrc := fs.NewCachingMountSource(ctx, nil, fs.MountSourceFlags{})
+	msrc := fs.NewCachingMountSource(ctx, nil, fs.MountSourceFlags{}, "overlay")
 	mountTree, err := ramfs.MakeDirectoryTree(ctx, msrc, submounts)
 	if err != nil {
 		return nil, fmt.Errorf("creating mount tree: %v", err)

@@ -126,7 +126,7 @@ func (f *Filesystem) Mount(ctx context.Context, layer string, flags fs.MountSour
 	}
 
 	// Construct img file system mount and inode.
-	msrc := fs.NewCachingMountSource(ctx, f, flags)
+	msrc := fs.NewCachingMountSource(ctx, f, flags, layer)
 
 	var s syscall.Stat_t
 	err := syscall.Fstat(int(f.packageFD), &s)

@@ -267,7 +267,7 @@ func newMountSource(ctx context.Context, root string, mounter fs.FileOwner, file
 		inodeMappings:          make(map[uint64]string),
 		mounter:                mounter,
 		dontTranslateOwnership: dontTranslateOwnership,
-	}, filesystem, flags)
+	}, filesystem, flags, "host")
 }
 
 // superOperations implements fs.MountSourceOperations.
