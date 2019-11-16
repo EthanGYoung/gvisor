@@ -69,7 +69,6 @@ func fileOpOn(t *kernel.Task, dirFD int32, path string, resolve bool, fn func(ro
 		f   *fs.File   // The file corresponding to dirFD (if required.)
 		err error
 	)
-	log.Infof("TRACE-Original_Path-" + path)
 
 	// Extract the working directory (maybe).
 	if len(path) > 0 && path[0] == '/' {
@@ -78,7 +77,9 @@ func fileOpOn(t *kernel.Task, dirFD int32, path string, resolve bool, fn func(ro
 		// Need to reference the working directory.
 		wd = t.FSContext().WorkingDirectory()
 		rel = wd
+		log.Infof("TODO: Add trace here")
 	} else {
+		log.Infof("TODO: Add trace here")
 		// Need to extract the given FD.
 		f = t.GetFile(dirFD)
 		if f == nil {
@@ -92,6 +93,10 @@ func fileOpOn(t *kernel.Task, dirFD int32, path string, resolve bool, fn func(ro
 
 	// Grab the root (always required.)
 	root := t.FSContext().RootDirectory()
+	
+
+	
+	log.Infof("TRACE-Original_Path-" + path)
 
 	// Update root with BF results
 	if (false) {
