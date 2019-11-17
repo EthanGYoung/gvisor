@@ -66,11 +66,11 @@ type Inode struct {
 	appendMu sync.RWMutex `state:"nosave"`
 }
 
-// TESTING BFS
-func (i *Inode) CheckOverlay(path string) (*Inode)  {
+// Traverses tree to check BF on each layer
+func (i *Inode) BFCheckOverlay(path string)  {
 	// Base case (No more overlays)
 	if (i.overlay == nil) {
-		return i
+		return 
 	}
 
 	u := i.overlay.upper
@@ -80,29 +80,14 @@ func (i *Inode) CheckOverlay(path string) (*Inode)  {
 		log.Infof("Upper in msrc: " + u.MountSource.name)
 		if (strings.Contains(u.MountSource.name, "imgfs")) {
 			i.overlay.bf_check = true
-			if (!CheckBF(u, path)) {
-				// Path not in layer
-				// TODO: Does this erase for subsequent lookups, too? Like will all other lookups in root not check this layer
-				//		- Possibly, need to manipulate the dirents (in-mem) and not the inodes
-				//		- YES
-				i.overlay.traverse = false
-			} else {
-				i.overlay.traverse = true
-			}
+			i.overlay.traverse = CheckBF(u, path)
 		}
 	}
 	if (l != nil) {
 		log.Infof("Lower in msrc: " + l.MountSource.name)
-		// Recursively create tree
-		i.overlay.lower = l.CheckOverlay(path)
+		// Recursively check tree
+		l.BFCheckOverlay(path)
 	}
-	if (u == nil && l == nil) {
-		log.Infof("Both msrc is nil")
-	}
-
-	log.Infof("Returning from CheckOverlay")
-
-	return i
 }
 
 func CheckBF(i *Inode, path string) (bool) {
@@ -116,65 +101,125 @@ func CheckBF(i *Inode, path string) (bool) {
 	return bf.TestElement([]byte(path))
 }
 
+// False if BF negative
+// True if BF positive or not imgFS layer
 func CheckBFLayer(i *Inode, path string) (bool) {
 	if (i.overlay == nil) {
-		return false
+		return true
 	}
 	return CheckBF(i.overlay.upper, path)
 }
+
+func (i *Inode) VerticalTraverse(ctx context.Context, mns *MountNamespace, root, rel *Dirent, bf, resolve bool, path string) (*Dirent, uint, error) {
+	// Check each imgfs layer for the file path
+	if (bf) {
+		i.BFCheckOverlay(path)
+	}
+
+	// If bf == false, then this is a normal lookup
+	return findDirent(ctx, mns, root, rel, path, resolve)
+
+}
+
 
 // ASSUMING THAT ONCE FOUND, RETURNED IMMEDIATELY
 // NOT GRABBING ATTR FROM LOWER IF FOUND IN ORIGINAL UPPER
 
 // TODO: Figure out how to use the children of each inode -> I don't think this method does this
-func (i *Inode) HorizontalTraverse(ctx context.Context, root *Dirent) []*Dirent {
-	var layers []*Dirent
-	var upper = false
+func (i *Inode) HorizontalTraverse(ctx context.Context, mns *MountNamespace, root, rel *Dirent, bf, resolve bool, path string) (*Dirent, uint, error) {
 	var tmp *Inode
+	var d *Dirent
+	var upD *Dirent	// If found in root tmpfs, keep dirent here because we need to overwrite its attributes
+	var err error
+	var upT uint // Remaining traversals in upper
+	var lowT uint // Remaining traversals in lower
+	
+	var upper = false	// Assume always upper tmpfs, set to true on first loop
 
-	log.Infof("HorizontalTraverse")
+	log.Infof("HorizontalTraverse", )
+
+	// TODO: Get BF hash if true and use for all lookups across layers
 
 	curr := i.overlay.lower
 	pseudo := NewInode(ctx, curr.InodeOperations, NewPseudoMountSource(ctx), curr.StableAttr) // Inode used as lower on all, which is not used (not overlay)
+	pseudo.overlay = nil // So that the traversal ends
 	
-	//pseudo.overlay = nil
 	// Assuming atleast upper or lower, check later
 	for {
 		
-		// While case
-		if (curr.overlay == nil || curr.overlay.lower == nil || (!upper && root.Inode.overlay.upper == nil)) {
-			log.Infof("Breaking from traversal")
-			//log.Infof("Breaking from traversal. First: %v, second: %v, third: %v", curr.overlay.lower, upper, root.Inode.overlay.upper)
+		// While case: Break if no more layers to check
+		if (curr == nil || curr.overlay == nil) {
 			break
 		}
-
-		log.Infof("About to check overlay")
-		// Do case
-		if (root.Inode.overlay.upper != nil && !upper) {
-			log.Infof("Checking upper horizontally")
-			//tmp = NewPseudoOverlayInode(ctx, i.overlay.upper, root.Inode.MountSource)
-			tmp = NewPseudoOverlayInode(ctx, pseudo, root.Inode.MountSource)
-			tmp.overlay.upper = i.overlay.upper
-			tmp.overlay.lower = nil
-			upper = true 
-		} else {
-			log.Infof("Checking lower horizontally")
-			//tmp = NewPseudoOverlayInode(ctx, curr.overlay.upper, root.Inode.MountSource)
-			tmp = NewPseudoOverlayInode(ctx, pseudo, root.Inode.MountSource)
-			tmp.overlay.upper = curr.overlay.upper
-			tmp.overlay.lower = nil
-			// d = tmp.lookupLayer(t, ctx, NewDirent(tmp, root.name), wd, path, remainingTraversals, resolve)	
+	
+		// If Bloom Filters enabled, check to avoid creating pseudo layer (Don't check on tmpfs)
+		if (bf && upper && !CheckBFLayer(curr, path)) {
+			// Check bf and continue if not positive
 			curr = curr.overlay.lower
+			continue
 		}
 
-		log.Infof("Creating new dirent")
-		layers = append(layers, NewDirent(ctx, tmp, root.name)) 
-		log.Infof("Dirent created")
-	}
-	log.Infof("About to return from Horizontal")
-	return layers
+		tmp = NewPseudoOverlayInode(ctx, pseudo, root.Inode.MountSource)
+		tmp.overlay.lower = nil
+		
+		// Do case: decide which fs to traverse
+		if (!upper && root.Inode.overlay.upper != nil) {
+			log.Infof("Checking root tmpfs")
+			tmp.overlay.upper = i.overlay.upper
+			upper = true 
+			
+			// Attempt to find in upper filesystem
+			upD, upT, err = findDirent(ctx, mns, NewDirent(ctx, tmp, root.name), rel, path, resolve)
 
+		} else {
+			log.Infof("Checking a readonly lower fs")
+			tmp.overlay.upper = curr.overlay.upper
+			curr = curr.overlay.lower
+			
+			d, lowT, err = findDirent(ctx, mns, NewDirent(ctx, tmp, root.name), rel, path, resolve)
+		}
+
+		// Found the file
+		if (d != nil) {
+			// There was an upper 
+			if (upD != nil) {
+				// Use attr of lower and return upper file
+				// Steal attributes.
+				// TODO: I think this is wrong, changing underlying inode in upper
+				upD.Inode.StableAttr = d.Inode.StableAttr
+				
+				d = upD
+				lowT = upT
+			}
+
+			return d, lowT, err
+		}
+
+	}
+
+	// Return upD (file in root tmpfs if existed if no file found in lower FS')
+	return upD, upT, err
 }
+
+
+func findDirent(t context.Context, mns *MountNamespace, layer, rel *Dirent, path string, resolve bool) (*Dirent, uint, error) {
+	var (
+		d *Dirent	// The file
+		err error	// Error returned
+	)
+	
+	// Lookup the node. TODO: Check if need &remainingTraversals
+	remainingTraversals := uint(linux.MaxSymlinkTraversals)
+	
+	if resolve {
+		d, err = mns.FindInode(t, layer, rel, path, &remainingTraversals)
+	} else {
+		d, err = mns.FindLink(t, layer, rel, path, &remainingTraversals)
+	}
+
+	return d, remainingTraversals, err
+}
+
 // LockCtx is an Inode's lock context and contains different personalities of locks; both
 // Posix and BSD style locks are supported.
 //

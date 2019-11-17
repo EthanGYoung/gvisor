@@ -34,6 +34,11 @@ import (
 	"gvisor.dev/gvisor/pkg/log"
 )
 
+const (
+	BF = 	true
+	HORIZ = true 
+)
+
 // fileOpAt performs an operation on the second last component in the path.
 func fileOpAt(t *kernel.Task, dirFD int32, path string, fn func(root *fs.Dirent, d *fs.Dirent, name string, remainingTraversals uint) error) error {
 	// Extract the last component.
@@ -67,6 +72,7 @@ func fileOpOn(t *kernel.Task, dirFD int32, path string, resolve bool, fn func(ro
 		wd  *fs.Dirent // The working directory (if required.)
 		rel *fs.Dirent // The relative directory for search (if required.)
 		f   *fs.File   // The file corresponding to dirFD (if required.)
+		remainingTraversals uint
 		err error
 	)
 
@@ -77,7 +83,7 @@ func fileOpOn(t *kernel.Task, dirFD int32, path string, resolve bool, fn func(ro
 		// Need to reference the working directory.
 		wd = t.FSContext().WorkingDirectory()
 		rel = wd
-		log.Infof("TODO: Add trace here")
+		log.Infof("TODO: Add trace here, do without bf")
 	} else {
 		log.Infof("TODO: Add trace here")
 		// Need to extract the given FD.
@@ -98,34 +104,7 @@ func fileOpOn(t *kernel.Task, dirFD int32, path string, resolve bool, fn func(ro
 	
 	log.Infof("TRACE-Original_Path-" + path)
 
-	// Update root with BF results
-	if (false) {
-	//if (strings.Contains(path, "img") && false) {
-		// TODO: Change this to return a dirent or just change to modify root (use is subsequent steps)
-		bfTest(path, root)
-	}
-
-	remainingTraversals := uint(linux.MaxSymlinkTraversals)
-	// Implement horizontal search
-	if (strings.Contains(path, "img") && false) {
-		d = horizontalTraverse(t, t, root, rel, path, resolve, &remainingTraversals, false)
-	} else if (true) {
-	//} else if (strings.Contains(path, "img") && true) {
-		// Both horizontal and BF
-		d = horizontalTraverse(t, t, root, rel, path, resolve, &remainingTraversals, true)
-	} else {
-
-	
-		// Lookup the node.
-		if resolve {
-			log.Infof("Resolving!")
-			d, err = t.MountNamespace().FindInode(t, root, rel, path, &remainingTraversals)
-			log.Infof("Done resolving")
-		} else {
-			log.Infof("Linking!")
-			d, err = t.MountNamespace().FindLink(t, root, rel, path, &remainingTraversals)
-		}
-	}
+	d, remainingTraversals, err = traverse(t, t, root, rel, path, resolve)
 
 	root.DecRef()
 	if wd != nil {
@@ -147,47 +126,27 @@ func fileOpOn(t *kernel.Task, dirFD int32, path string, resolve bool, fn func(ro
 func bfTest(path string, root *fs.Dirent) {
 	log.Infof("bfTest called on " + path)
 	i := root.Inode
-	i.CheckOverlay(path)
+	i.BFCheckOverlay(path)
 }
 
 // Returns a dentry if found
-func horizontalTraverse(t *kernel.Task, ctx context.Context, root, rel *fs.Dirent, path string, resolve bool, remainingTraversals *uint, bf bool) (*fs.Dirent) {
+func traverse(t *kernel.Task, ctx context.Context, root, rel *fs.Dirent, path string, resolve bool) (*fs.Dirent, uint, error) {
 	var d *fs.Dirent
+	var trav uint
+	var err error
 
-	log.Infof("About to traverse horizontally")
-	layers := root.Inode.HorizontalTraverse(ctx, root) 
-	log.Infof("Returned from HorizontalTraverse")
-	// Creates a pseudo root overlay with only 1 layer lower layer
-	for _, layer := range layers {
-		log.Infof("Looping in horizontal")
-
-		if (bf) {
-			// Test with bloom filter first
-			if (!fs.CheckBFLayer(layer.Inode, path)) {
-				continue
-			}
-		}
-		// Lookup the node. TODO: Check if need &remainingTraversals
-		remainingTraversals := uint(linux.MaxSymlinkTraversals)
-		if resolve {
-			log.Infof("Resolving horiz!")
-			d, _ = t.MountNamespace().FindInode(t, layer, rel, path, &remainingTraversals)
-			log.Infof("Done resolving")
-		} else {
-			log.Infof("Linking hoiz!")
-			d, _ = t.MountNamespace().FindLink(t, layer, rel, path, &remainingTraversals)
-		}
-
-		if (d != nil) {
-			log.Infof("File is found, returning d")
-			return d
-		}
+	// TODO: Make this work without strings.contains
+	if (HORIZ && strings.Contains(path, "img")) {
+		// Traverse horizontally (Allow for bf, dirSymlink, and inodeCache)
+		d, trav, err = root.Inode.HorizontalTraverse(ctx, t.MountNamespace(), root, rel, BF, resolve, path)
+	} else {
+		// Traverse vertically (Allow for bf, dirSymlink, and inodeCache (possibly))
+		d, trav, err = root.Inode.VerticalTraverse(ctx, t.MountNamespace(), root, rel, BF, resolve, path)
 	}
 
-	log.Infof("File not found, returning nil")
-	return nil
-	
+	return d, trav, err
 }
+
 // copyInPath copies a path in.
 func copyInPath(t *kernel.Task, addr usermem.Addr, allowEmpty bool) (path string, dirPath bool, err error) {
 	path, err = t.CopyInString(addr, linux.PATH_MAX)
