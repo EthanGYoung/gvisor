@@ -126,7 +126,7 @@ func fileOpOn(t *kernel.Task, dirFD int32, path string, resolve bool, fn func(ro
 func bfTest(path string, root *fs.Dirent) {
 	log.Infof("bfTest called on " + path)
 	i := root.Inode
-	i.BFCheckOverlay(path)
+	i.BFCheckOverlay(path, 0, 0)
 }
 
 // Returns a dentry if found

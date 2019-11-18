@@ -71,7 +71,7 @@ func (b *BloomFilter) calcNumHashes() uint64 {
 // AddElement implements Filter.AddElement
 func (b *BloomFilter) AddElement(elem []byte) {
 	// Get the hashed value of the element
-	h1, h2 := b.hashElement(elem)
+	h1, h2 := b.HashElement(elem)
 
 	intHash := h1
 
@@ -86,7 +86,7 @@ func (b *BloomFilter) AddElement(elem []byte) {
 
 // hashElement hashes the elem passed in based on the murmur hash function
 // TODO: Unsure if Sum128 is correct
-func (b *BloomFilter) hashElement(elem []byte) (uint64, uint64) {
+func (b *BloomFilter) HashElement(elem []byte) (uint64, uint64) {
 	return murmur3.Sum128(elem)
 }
 
@@ -103,18 +103,17 @@ func (b *BloomFilter) RemoveElement() {
 }
 
 // TestElement implements Filter.TestElement
-func (b *BloomFilter) TestElement(elem []byte) bool {
+func (b *BloomFilter) TestElement(elem []byte) (bool) {
 	// TODO: Make this modular with add element
 	// Get the hashed value of the element
-	h1, h2 := b.hashElement(elem)
+	h1, h2 := b.HashElement(elem)
 
+	return b.TestElementHashCache(elem, h1, h2)
+}
+
+// Since hash is same for each layer, can compute hash once and pass in
+func (b *BloomFilter) TestElementHashCache(elem []byte, h1 uint64, h2 uint64) (bool) {
 	intHash := h1
-
-	// TODO: Look into this, may be perf issue..
-	//var testFilter = make([]bool, b.FilterSize)
-
-	// Create a test bit array
-	//copy(testFilter, b.BitSet)
 
 	// Set bits in bitset to represent added element
 	for i:=0; i < int(b.NumHashes); i++ {

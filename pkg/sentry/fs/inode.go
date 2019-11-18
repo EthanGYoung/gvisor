@@ -67,10 +67,16 @@ type Inode struct {
 }
 
 // Traverses tree to check BF on each layer
-func (i *Inode) BFCheckOverlay(path string)  {
+func (i *Inode) BFCheckOverlay(path string, h1, h2 uint64)  {
 	// Base case (No more overlays)
 	if (i.overlay == nil) {
 		return 
+	}
+
+	// Need to compute the hash to use for bf (TODO: 0 may not be the best comparison value)
+	if (h1 == 0) {
+		bf := i.MountSource.BloomFilter	
+		h1, h2 = bf.HashElement([]byte(path)) 
 	}
 
 	u := i.overlay.upper
@@ -80,17 +86,17 @@ func (i *Inode) BFCheckOverlay(path string)  {
 		log.Infof("Upper in msrc: " + u.MountSource.name)
 		if (strings.Contains(u.MountSource.name, "imgfs")) {
 			i.overlay.bf_check = true
-			i.overlay.traverse = CheckBF(u, path)
+			i.overlay.traverse = CheckBF(u, path, h1, h2)
 		}
 	}
 	if (l != nil) {
 		log.Infof("Lower in msrc: " + l.MountSource.name)
 		// Recursively check tree
-		l.BFCheckOverlay(path)
+		l.BFCheckOverlay(path, h1, h2)
 	}
 }
 
-func CheckBF(i *Inode, path string) (bool) {
+func CheckBF(i *Inode, path string, h1, h2 uint64) (bool) {
 	bf := i.MountSource.BloomFilter
 	log.Infof("TRACE-bf_lookup-" + i.MountSource.name)
 
@@ -98,22 +104,22 @@ func CheckBF(i *Inode, path string) (bool) {
 		log.Infof("Found in upper BF")
 	}
 
-	return bf.TestElement([]byte(path))
+	return bf.TestElementHashCache([]byte(path), h1, h2)
 }
 
 // False if BF negative
 // True if BF positive or not imgFS layer
-func CheckBFLayer(i *Inode, path string) (bool) {
+func CheckBFLayer(i *Inode, path string, h1, h2 uint64) (bool) {
 	if (i.overlay == nil) {
 		return true
 	}
-	return CheckBF(i.overlay.upper, path)
+	return CheckBF(i.overlay.upper, path, h1, h2)
 }
 
 func (i *Inode) VerticalTraverse(ctx context.Context, mns *MountNamespace, root, rel *Dirent, bf, resolve bool, path string) (*Dirent, uint, error) {
 	// Check each imgfs layer for the file path
 	if (bf) {
-		i.BFCheckOverlay(path)
+		i.BFCheckOverlay(path, 0, 0)
 	}
 
 	// If bf == false, then this is a normal lookup
@@ -133,12 +139,17 @@ func (i *Inode) HorizontalTraverse(ctx context.Context, mns *MountNamespace, roo
 	var err error
 	var upT uint // Remaining traversals in upper
 	var lowT uint // Remaining traversals in lower
-	
+	var h1 uint64
+	var h2 uint64
 	var upper = false	// Assume always upper tmpfs, set to true on first loop
 
 	log.Infof("HorizontalTraverse", )
 
-	// TODO: Get BF hash if true and use for all lookups across layers
+	// Get BF hash to be used for all layers
+	if (bf) {
+		bf := i.MountSource.BloomFilter	
+		h1, h2 = bf.HashElement([]byte(path))
+	}
 
 	curr := i.overlay.lower
 	pseudo := NewInode(ctx, curr.InodeOperations, NewPseudoMountSource(ctx), curr.StableAttr) // Inode used as lower on all, which is not used (not overlay)
@@ -153,7 +164,7 @@ func (i *Inode) HorizontalTraverse(ctx context.Context, mns *MountNamespace, roo
 		}
 	
 		// If Bloom Filters enabled, check to avoid creating pseudo layer (Don't check on tmpfs)
-		if (bf && upper && !CheckBFLayer(curr, path)) {
+		if (bf && upper && !CheckBFLayer(curr, path, h1, h2)) {
 			// Check bf and continue if not positive
 			curr = curr.overlay.lower
 			continue
