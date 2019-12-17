@@ -1,3 +1,8 @@
+## What is ContainerFS?
+
+Please see presentation.pdf in the root directory to see presentation slides on the ContainerFS modifications. For cold opens (opening a file that has never been opened before), ContainerFS increases performance by 5x at the time of this commit.
+
+
 ![gVisor](g3doc/logo.png)
 
 [![Status](https://storage.googleapis.com/gvisor-build-badges/build.svg)](https://storage.googleapis.com/gvisor-build-badges/build.html)
