@@ -1003,6 +1003,7 @@ func (pseg pmaIterator) getInternalMappingsLocked() error {
 		perms := pma.maxPerms
 		// We will never execute application code through an internal mapping.
 		perms.Execute = false
+
 		ims, err := pma.file.MapInternal(pseg.fileRange(), perms)
 		if err != nil {
 			return err

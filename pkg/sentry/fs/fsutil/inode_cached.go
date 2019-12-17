@@ -616,6 +616,7 @@ func (rw *inodeReadWriter) ReadToBlocks(dsts safemem.BlockSeq) (uint64, error) {
 		mr := memmap.MappableRange{uint64(rw.offset), uint64(end)}
 		switch {
 		case seg.Ok():
+			log.Infof("Get internal mappings to cache")
 			// Get internal mappings from the cache.
 			ims, err := mem.MapInternal(seg.FileRangeOf(seg.Range().Intersect(mr)), usermem.Read)
 			if err != nil {
@@ -723,6 +724,7 @@ func (rw *inodeReadWriter) WriteFromBlocks(srcs safemem.BlockSeq) (uint64, error
 		mr := memmap.MappableRange{uint64(rw.offset), uint64(end)}
 		switch {
 		case seg.Ok() && seg.Start() < mr.End:
+			log.Infof("Get mappings to cache -")
 			// Get internal mappings from the cache.
 			segMR := seg.Range().Intersect(mr)
 			ims, err := mf.MapInternal(seg.FileRangeOf(segMR), usermem.Write)

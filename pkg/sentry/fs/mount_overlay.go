@@ -34,7 +34,7 @@ func newOverlayMountSource(ctx context.Context, upper, lower *MountSource, flags
 	msrc := NewMountSource(ctx, &overlayMountSourceOperations{
 		upper: upper,
 		lower: lower,
-	}, &overlayFilesystem{}, flags)
+	}, &overlayFilesystem{}, flags, "Overlay")
 
 	// Use the minimum number to keep resource usage under limits.
 	size := lower.fscache.maxSize

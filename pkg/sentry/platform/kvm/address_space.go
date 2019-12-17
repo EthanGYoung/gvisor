@@ -157,7 +157,6 @@ func (as *addressSpace) mapHost(addr usermem.Addr, m hostMapEntry, at usermem.Ac
 func (as *addressSpace) MapFile(addr usermem.Addr, f platform.File, fr platform.FileRange, at usermem.AccessType, precommit bool) error {
 	as.mu.Lock()
 	defer as.mu.Unlock()
-
 	// Get mappings in the sentry's address space, which are guaranteed to be
 	// valid as long as a reference is held on the mapped pages (which is in
 	// turn required by AddressSpace.MapFile precondition).

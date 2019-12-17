@@ -271,7 +271,7 @@ func Root(ctx context.Context, dev string, filesystem fs.Filesystem, superBlockF
 	}
 
 	// Construct the MountSource with the session and superBlockFlags.
-	m := fs.NewMountSource(ctx, &s, filesystem, superBlockFlags)
+	m := fs.NewMountSource(ctx, &s, filesystem, superBlockFlags, "gofer")
 
 	// Given that gofer files can consume host FDs, restrict the number
 	// of files that can be held by the cache.

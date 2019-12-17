@@ -496,6 +496,7 @@ func (f *MemoryFile) AllocateAndFill(length uint64, kind usage.MemoryKind, r saf
 	if err != nil {
 		return platform.FileRange{}, err
 	}
+
 	dsts, err := f.MapInternal(fr, usermem.Write)
 	if err != nil {
 		f.DecRef(fr)

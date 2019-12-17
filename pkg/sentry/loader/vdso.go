@@ -243,6 +243,7 @@ func PrepareVDSO(ctx context.Context, mfp pgalloc.MemoryFileProvider) (*VDSO, er
 		return nil, fmt.Errorf("unable to allocate VDSO memory: %v", err)
 	}
 
+	log.Infof("Preparing vdso")
 	ims, err := mf.MapInternal(vdso, usermem.ReadWrite)
 	if err != nil {
 		mf.DecRef(vdso)

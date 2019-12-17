@@ -1,47 +1,36 @@
-UID := $(shell id -u ${USER})
-GID := $(shell id -g ${USER})
-GVISOR_BAZEL_CACHE := $(shell readlink -f ~/.cache/bazel/)
+release = $(shell lsb_release -cs)
 
-all: runsc
+all:
+	make docker custom_gv_deps
 
-docker-build:
-	docker build -t gvisor-bazel .
+run:
+	sudo rm -rf /tmp/runsc
+	sudo docker run --runtime=runsc cfs-boot python /usr/src/python_trace/trace_layer.py $(FILE)
 
-bazel-shutdown:
-	docker exec -i gvisor-bazel bazel shutdown && \
-	docker kill gvisor-bazel
+build:
+	sudo rm -rf /tmp/runsc
+	bazel build runsc
+	sudo cp ./bazel-bin/runsc/linux_amd64_pure_stripped/runsc /usr/local/bin
 
-bazel-server-start: docker-build
-	mkdir -p "$(GVISOR_BAZEL_CACHE)" && \
-	docker run -d --rm --name gvisor-bazel \
-		--user 0:0 \
-		-v "$(GVISOR_BAZEL_CACHE):$(HOME)/.cache/bazel/" \
-		-v "$(CURDIR):$(CURDIR)" \
-		--workdir "$(CURDIR)" \
-		--tmpfs /tmp:rw,exec \
-		--privileged \
-		gvisor-bazel \
-		sh -c "while :; do sleep 100; done" && \
-	docker exec --user 0:0 -i gvisor-bazel sh -c "groupadd --gid $(GID) --non-unique gvisor && useradd --uid $(UID) --gid $(GID) -d $(HOME) gvisor"
+build_debug:
+	sudo rm -rf /tmp/runsc
+	bazel build -c dbg runsc
+	sudo cp ./bazel-bin/runsc/linux_amd64_pure_debug/runsc /usr/local/bin
+	
 
-bazel-server:
-	docker exec gvisor-bazel true || \
-	$(MAKE) bazel-server-start
+docker:
+	sudo apt-get update
+	sudo apt-get -y install apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+	curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+	sudo apt-key fingerprint 0EBFCD88
+	sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(release) stable"
+	sudo apt-get update
+	sudo apt-get -y install docker-ce
+	#sudo apt-get -y install docker-ce=5:19.03.2~3-0~ubuntu-xenial
 
-BAZEL_OPTIONS := build runsc
-bazel: bazel-server
-	docker exec -u $(UID):$(GID) -i gvisor-bazel bazel $(BAZEL_OPTIONS)
-
-bazel-alias:
-	@echo "alias bazel='docker exec -u $(UID):$(GID) -i gvisor-bazel bazel'"
-
-runsc:
-	$(MAKE) BAZEL_OPTIONS="build runsc" bazel
-
-tests:
-	$(MAKE) BAZEL_OPTIONS="test --test_tag_filters runsc_ptrace //test/syscalls/..." bazel
-
-unit-tests:
-	$(MAKE) BAZEL_OPTIONS="test //pkg/... //runsc/... //tools/..." bazel
-
-.PHONY: docker-build bazel-shutdown bazel-server-start bazel-server bazel runsc tests
+custom_gv_deps:
+	sudo apt-get install pkg-config zip g++ zlib1g-dev unzip python
+	sudo wget https://github.com/bazelbuild/bazel/releases/download/0.25.2/bazel-0.25.2-installer-linux-x86_64.sh
+	sudo chmod +x bazel-0.25.2-installer-linux-x86_64.sh
+	./bazel-0.25.2-installer-linux-x86_64.sh --user
+	rm -f bazel-0.25.2-installer-linux-x86_64.sh	

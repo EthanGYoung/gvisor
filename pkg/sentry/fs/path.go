@@ -117,3 +117,12 @@ func IsSubpath(subpath, path string) (string, bool) {
 	}
 	return "", false
 }
+
+// ConvertToAbsolute converts a current directory and relative
+// path from the current directory into an absolute path. If
+// the relative path attempts to go before '/', then err is
+// returned.
+func ConvertToAbsolute(curr_dir, rel_path string) (string, error) {
+	longPath := curr_dir + rel_path
+	return filepath.Abs(longPath)
+}

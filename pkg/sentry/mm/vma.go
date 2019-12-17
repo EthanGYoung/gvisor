@@ -288,6 +288,7 @@ func (mm *MemoryManager) getVMAsLocked(ctx context.Context, ar usermem.AddrRange
 		if ignorePermissions {
 			perms = vma.maxPerms
 		}
+		
 		if !perms.SupersetOf(at) {
 			return vbegin, vgap, syserror.EPERM
 		}

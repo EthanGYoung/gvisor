@@ -52,6 +52,7 @@ go_library(
         "//pkg/log",
         "//pkg/metric",
         "//pkg/p9",
+        "//pkg/filter",
         "//pkg/refs",
         "//pkg/secio",
         "//pkg/sentry/arch",

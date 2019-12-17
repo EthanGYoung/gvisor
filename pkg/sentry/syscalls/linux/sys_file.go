@@ -16,6 +16,7 @@ package linux
 
 import (
 	"syscall"
+	"strings"
 
 	"gvisor.dev/gvisor/pkg/abi/linux"
 	"gvisor.dev/gvisor/pkg/sentry/arch"
@@ -30,6 +31,12 @@ import (
 	"gvisor.dev/gvisor/pkg/sentry/limits"
 	"gvisor.dev/gvisor/pkg/sentry/usermem"
 	"gvisor.dev/gvisor/pkg/syserror"
+	"gvisor.dev/gvisor/pkg/log"
+)
+
+const (
+	BF = 	true
+	HORIZ = true 
 )
 
 // fileOpAt performs an operation on the second last component in the path.
@@ -65,6 +72,7 @@ func fileOpOn(t *kernel.Task, dirFD int32, path string, resolve bool, fn func(ro
 		wd  *fs.Dirent // The working directory (if required.)
 		rel *fs.Dirent // The relative directory for search (if required.)
 		f   *fs.File   // The file corresponding to dirFD (if required.)
+		remainingTraversals uint
 		err error
 	)
 
@@ -75,7 +83,9 @@ func fileOpOn(t *kernel.Task, dirFD int32, path string, resolve bool, fn func(ro
 		// Need to reference the working directory.
 		wd = t.FSContext().WorkingDirectory()
 		rel = wd
+		log.Infof("TODO: Add trace here, do without bf")
 	} else {
+		log.Infof("TODO: Add trace here")
 		// Need to extract the given FD.
 		f = t.GetFile(dirFD)
 		if f == nil {
@@ -89,14 +99,13 @@ func fileOpOn(t *kernel.Task, dirFD int32, path string, resolve bool, fn func(ro
 
 	// Grab the root (always required.)
 	root := t.FSContext().RootDirectory()
+	
 
-	// Lookup the node.
-	remainingTraversals := uint(linux.MaxSymlinkTraversals)
-	if resolve {
-		d, err = t.MountNamespace().FindInode(t, root, rel, path, &remainingTraversals)
-	} else {
-		d, err = t.MountNamespace().FindLink(t, root, rel, path, &remainingTraversals)
-	}
+	
+	log.Infof("TRACE-Original_Path-" + path)
+
+	d, remainingTraversals, err = traverse(t, t, root, rel, path, resolve)
+
 	root.DecRef()
 	if wd != nil {
 		wd.DecRef()
@@ -111,6 +120,31 @@ func fileOpOn(t *kernel.Task, dirFD int32, path string, resolve bool, fn func(ro
 	err = fn(root, d, remainingTraversals)
 	d.DecRef()
 	return err
+	
+}
+
+func bfTest(path string, root *fs.Dirent) {
+	log.Infof("bfTest called on " + path)
+	i := root.Inode
+	i.BFCheckOverlay(path, 0, 0)
+}
+
+// Returns a dentry if found
+func traverse(t *kernel.Task, ctx context.Context, root, rel *fs.Dirent, path string, resolve bool) (*fs.Dirent, uint, error) {
+	var d *fs.Dirent
+	var trav uint
+	var err error
+
+	// TODO: Make this work without strings.contains
+	if (HORIZ && strings.Contains(path, "img")) {
+		// Traverse horizontally (Allow for bf, dirSymlink, and inodeCache)
+		d, trav, err = root.Inode.HorizontalTraverse(ctx, t.MountNamespace(), root, rel, BF, resolve, path)
+	} else {
+		// Traverse vertically (Allow for bf, dirSymlink, and inodeCache (possibly))
+		d, trav, err = root.Inode.VerticalTraverse(ctx, t.MountNamespace(), root, rel, BF, resolve, path)
+	}
+
+	return d, trav, err
 }
 
 // copyInPath copies a path in.

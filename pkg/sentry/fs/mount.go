@@ -20,6 +20,7 @@ import (
 	"sync/atomic"
 
 	"gvisor.dev/gvisor/pkg/refs"
+	"gvisor.dev/gvisor/pkg/filter"
 	"gvisor.dev/gvisor/pkg/sentry/context"
 )
 
@@ -125,6 +126,12 @@ type MountSource struct {
 	//
 	// direntRefs must be atomically changed.
 	direntRefs uint64
+	
+	// Name of this mount -> Often the layer name for debugging
+	name string
+
+	// BloomFilter for this layer
+	BloomFilter filter.BloomFilter
 }
 
 // DefaultDirentCacheSize is the number of Dirents that the VFS can hold an
@@ -133,16 +140,21 @@ const DefaultDirentCacheSize uint64 = 1000
 
 // NewMountSource returns a new MountSource. Filesystem may be nil if there is no
 // filesystem backing the mount.
-func NewMountSource(ctx context.Context, mops MountSourceOperations, filesystem Filesystem, flags MountSourceFlags) *MountSource {
+func NewMountSource(ctx context.Context, mops MountSourceOperations, filesystem Filesystem, flags MountSourceFlags, name string) *MountSource {
 	fsType := "none"
+	mountName := "No name"
 	if filesystem != nil {
 		fsType = filesystem.Name()
 	}
-	msrc := MountSource{
+
+	if (name != "") { mountName = name }
+
+		msrc := MountSource{
 		MountSourceOperations: mops,
 		Flags:                 flags,
 		FilesystemType:        fsType,
 		fscache:               NewDirentCache(DefaultDirentCacheSize),
+		name:				   mountName,
 	}
 	msrc.EnableLeakCheck("fs.MountSource")
 	return &msrc
@@ -196,12 +208,12 @@ func (msrc *MountSource) SetDirentCacheLimiter(l *DirentCacheLimiter) {
 
 // NewCachingMountSource returns a generic mount that will cache dirents
 // aggressively.
-func NewCachingMountSource(ctx context.Context, filesystem Filesystem, flags MountSourceFlags) *MountSource {
+func NewCachingMountSource(ctx context.Context, filesystem Filesystem, flags MountSourceFlags, name string) *MountSource {
 	return NewMountSource(ctx, &SimpleMountSourceOperations{
 		keep:         true,
 		revalidate:   false,
 		cacheReaddir: true,
-	}, filesystem, flags)
+	}, filesystem, flags, name)
 }
 
 // NewNonCachingMountSource returns a generic mount that will never cache dirents.
@@ -210,7 +222,7 @@ func NewNonCachingMountSource(ctx context.Context, filesystem Filesystem, flags 
 		keep:         false,
 		revalidate:   false,
 		cacheReaddir: false,
-	}, filesystem, flags)
+	}, filesystem, flags, "NonCache")
 }
 
 // NewRevalidatingMountSource returns a generic mount that will cache dirents,
@@ -220,7 +232,7 @@ func NewRevalidatingMountSource(ctx context.Context, filesystem Filesystem, flag
 		keep:         true,
 		revalidate:   true,
 		cacheReaddir: false,
-	}, filesystem, flags)
+	}, filesystem, flags, "Reval")
 }
 
 // NewPseudoMountSource returns a "pseudo" mount source that is not backed by
@@ -230,7 +242,7 @@ func NewPseudoMountSource(ctx context.Context) *MountSource {
 		keep:         false,
 		revalidate:   false,
 		cacheReaddir: false,
-	}, nil, MountSourceFlags{})
+	}, nil, MountSourceFlags{}, "Pseudo")
 }
 
 // SimpleMountSourceOperations implements MountSourceOperations.

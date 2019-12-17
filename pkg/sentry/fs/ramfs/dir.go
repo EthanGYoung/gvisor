@@ -258,6 +258,7 @@ func (d *Dir) RemoveDirectory(ctx context.Context, _ *fs.Inode, name string) err
 // Lookup loads an inode at p into a Dirent. It returns the fs.Dirent along
 // with a reference.
 func (d *Dir) Lookup(ctx context.Context, _ *fs.Inode, p string) (*fs.Dirent, error) {
+
 	if len(p) > linux.NAME_MAX {
 		return nil, syserror.ENAMETOOLONG
 	}

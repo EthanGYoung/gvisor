@@ -82,6 +82,9 @@ var (
 	rootless           = flag.Bool("rootless", false, "it allows the sandbox to be started with a user that is not root. Sandbox and Gofer processes may run with same privileges as current user.")
 	referenceLeakMode  = flag.String("ref-leak-mode", "disabled", "sets reference leak check mode: disabled (default), log-names, log-traces.")
 
+	imgPath        = flag.String("img-path", "", "image path for ImgFS")
+	packageFD     = flag.Int("package-fd", -1, "file descriptor to python packages")
+
 	// Test flags, not to be used outside tests, ever.
 	testOnlyAllowRunAsCurrentUserWithoutChroot = flag.Bool("TESTONLY-unsafe-nonroot", false, "TEST ONLY; do not ever use! This skips many security measures that isolate the host from the sandbox.")
 	testOnlyTestNameEnv                        = flag.String("TESTONLY-test-name-env", "", "TEST ONLY; do not ever use! Used for automated tests to improve logging.")
@@ -216,6 +219,8 @@ func main() {
 		Strace:             *strace,
 		StraceLogSize:      *straceLogSize,
 		WatchdogAction:     wa,
+		ImgPath:        *imgPath, // Note: imgPath can be empty string (disable the feature)
+		PackageFD:      *packageFD,
 		PanicSignal:        *panicSignal,
 		ProfileEnable:      *profile,
 		EnableRaw:          *netRaw,
@@ -289,6 +294,7 @@ func main() {
 	log.Infof("\t\tFileAccess: %v, overlay: %t", conf.FileAccess, conf.Overlay)
 	log.Infof("\t\tNetwork: %v, logging: %t", conf.Network, conf.LogPackets)
 	log.Infof("\t\tStrace: %t, max size: %d, syscalls: %s", conf.Strace, conf.StraceLogSize, conf.StraceSyscalls)
+	log.Infof("\t\tPackageFD: %v", *packageFD)
 	log.Infof("***************************")
 
 	if *testOnlyAllowRunAsCurrentUserWithoutChroot {

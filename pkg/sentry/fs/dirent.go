@@ -29,6 +29,7 @@ import (
 	"gvisor.dev/gvisor/pkg/sentry/socket/unix/transport"
 	"gvisor.dev/gvisor/pkg/sentry/uniqueid"
 	"gvisor.dev/gvisor/pkg/syserror"
+	"gvisor.dev/gvisor/pkg/log"
 )
 
 type globalDirentMap struct {
@@ -461,6 +462,8 @@ func (d *Dirent) walk(ctx context.Context, root *Dirent, name string, walkMayUnl
 		return nil, syscall.ENOTDIR
 	}
 
+	log.Infof("TRACE-dirent_walk-(root=" + d.name + ", target=" + name + ")")
+
 	if name == "" || name == "." {
 		d.IncRef()
 		return d, nil
@@ -500,6 +503,7 @@ func (d *Dirent) walk(ctx context.Context, root *Dirent, name string, walkMayUnl
 			// We never allow the file system to revalidate mounts, that could cause them
 			// to unexpectedly drop out before umount.
 			if cd.mounted || !cd.Inode.MountSource.Revalidate(ctx, name, d.Inode, cd.Inode) {
+				log.Infof("TRACE-cached_walk-(root=" + d.name + ", target=" + name + ")")
 				// Good to go. This is the fast-path.
 				return cd, nil
 			}
@@ -592,6 +596,7 @@ func (d *Dirent) walk(ctx context.Context, root *Dirent, name string, walkMayUnl
 		// only reference we'll ever get. d owns the reference.
 		return nil, syscall.ENOENT
 	}
+	log.Infof("Returning positive dirent")
 
 	// Return the positive Dirent.
 	return c, nil

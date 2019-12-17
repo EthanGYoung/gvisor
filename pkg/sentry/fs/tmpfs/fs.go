@@ -139,7 +139,7 @@ func (f *Filesystem) Mount(ctx context.Context, device string, flags fs.MountSou
 	var msrc *fs.MountSource
 	switch options[cacheKey] {
 	case "", cacheAll:
-		msrc = fs.NewCachingMountSource(ctx, f, flags)
+		msrc = fs.NewCachingMountSource(ctx, f, flags, "tmpfs")
 	case cacheRevalidate:
 		msrc = fs.NewRevalidatingMountSource(ctx, f, flags)
 	default:

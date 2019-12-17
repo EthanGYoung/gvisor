@@ -22,6 +22,7 @@ import (
 	"gvisor.dev/gvisor/pkg/sentry/platform"
 	"gvisor.dev/gvisor/pkg/sentry/safemem"
 	"gvisor.dev/gvisor/pkg/sentry/usermem"
+	"gvisor.dev/gvisor/pkg/log"
 )
 
 // vdsoParams are the parameters exposed to the VDSO.
@@ -87,6 +88,7 @@ func NewVDSOParamPage(mfp pgalloc.MemoryFileProvider, fr platform.FileRange) *VD
 
 // access returns a mapping of the param page.
 func (v *VDSOParamPage) access() (safemem.Block, error) {
+	log.Infof("Get mapping in access")
 	bs, err := v.mfp.MemoryFile().MapInternal(v.fr, usermem.ReadWrite)
 	if err != nil {
 		return safemem.Block{}, err

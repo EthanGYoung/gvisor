@@ -19,8 +19,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"io/ioutil"
 	"os/exec"
+	"path"
+	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -326,9 +330,37 @@ func (s *Sandbox) connError(err error) error {
 	return fmt.Errorf("connecting to control server at PID %d: %v", s.Pid, err)
 }
 
+
+// Used for sorting the layers
+type byImg []string
+
+func (b byImg) Len() int {
+	return len(b)
+}
+
+func (b byImg) Swap(i, j int) {
+	b[i], b[j] = b[j], b[i]
+}
+
+func (b byImg) Less(i, j int) bool {
+	str1 := strings.Split(b[i], "/")
+	str2 := strings.Split(b[j], "/")
+
+	l_str1 := strings.Split(str1[len(str1)-1], ".")[0]
+	l_str2 := strings.Split(str2[len(str2)-1], ".")[0]
+
+	int1, _ := strconv.Atoi(l_str1)
+	int2, _ := strconv.Atoi(l_str2)
+
+	return int1 < int2
+
+}
+
+
 // createSandboxProcess starts the sandbox as a subprocess by running the "boot"
 // command, passing in the bundle dir.
 func (s *Sandbox) createSandboxProcess(conf *boot.Config, args *Args, startSyncFile *os.File) error {
+	log.Infof("imgfs - createSandboxProcess")
 	// nextFD is used to get unused FDs that we can pass to the sandbox.  It
 	// starts at 3 because 0, 1, and 2 are taken by stdin/out/err.
 	nextFD := 3
@@ -370,6 +402,19 @@ func (s *Sandbox) createSandboxProcess(conf *boot.Config, args *Args, startSyncF
 	}
 
 	cmd.Args = append(cmd.Args, "--panic-signal="+strconv.Itoa(int(syscall.SIGTERM)))
+
+	// Note frank: this is legacy code but may be useful in the future, especially
+	// if user want to have his own image mounted in some mount points.
+	if conf.ImgPath != "" {
+		packageFile, err := os.OpenFile(conf.ImgPath, os.O_RDONLY, 0644)
+		if err != nil {
+				return fmt.Errorf("opening package file: %v", err)
+		}
+		defer packageFile.Close()
+		cmd.ExtraFiles = append(cmd.ExtraFiles, packageFile)
+		cmd.Args = append(cmd.Args, "--package-fd="+strconv.Itoa(nextFD))
+		nextFD++
+	}
 
 	// Add the "boot" command to the args.
 	//
@@ -424,6 +469,29 @@ func (s *Sandbox) createSandboxProcess(conf *boot.Config, args *Args, startSyncF
 		cmd.Args = append(cmd.Args, "--device-fd="+strconv.Itoa(nextFD))
 		nextFD++
 	}
+
+	//Experiemntal Feature: use multiple layers of imgfs to replace gofer.
+	log.Infof("imgfs - reading dir to get img files")
+    files, err := ioutil.ReadDir(args.Spec.Root.Path)
+    var layers []string
+    for _, file := range files {
+        if strings.HasSuffix(file.Name(), ".img") {
+            layers = append(layers, file.Name())
+        }
+    }
+    // Layers have their order. We assume the layer with lower ascii order is the lower layer. e.g. layer1.img > layer2.img > layer3.img
+    sort.Sort(byImg(layers))
+    for _, layer := range layers {
+        layerFile, err := os.OpenFile(path.Join(args.Spec.Root.Path, layer), os.O_RDONLY, 0644)
+        if err != nil {
+            return fmt.Errorf("opening layer file: %v", err)
+        }
+        defer layerFile.Close()
+        cmd.ExtraFiles = append(cmd.ExtraFiles, layerFile)
+		cmd.Args = append(cmd.Args, "--layer-fds="+strconv.Itoa(nextFD))
+		log.Infof("imgfs - added FD to --layer-fds: %v", nextFD)
+        nextFD++
+    }
 
 	// The current process' stdio must be passed to the application via the
 	// --stdio-fds flag. The stdio of the sandbox process itself must not

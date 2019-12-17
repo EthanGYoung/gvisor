@@ -23,6 +23,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"syscall"
+	"io/ioutil"
 	gtime "time"
 
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -90,6 +91,10 @@ type Loader struct {
 
 	// goferFDs are the FDs that attach the sandbox to the gofers.
 	goferFDs []int
+
+	packageFD int
+
+	layerFDs []int
 
 	// spec is the base configuration for the root container.
 	spec *specs.Spec
@@ -168,6 +173,12 @@ type Args struct {
 	GoferFDs []int
 	// StdioFDs is the stdio for the application.
 	StdioFDs []int
+
+	PackageFD int
+
+	LayerFDs []int
+
+
 	// Console is set to true if using TTY.
 	Console bool
 	// NumCPU is the number of CPUs to create inside the sandbox.
@@ -328,6 +339,8 @@ func New(args Args) (*Loader, error) {
 		spec:         args.Spec,
 		goferFDs:     args.GoferFDs,
 		stdioFDs:     args.StdioFDs,
+		packageFD:    args.PackageFD,
+        layerFDs:     args.LayerFDs,
 		rootProcArgs: procArgs,
 		sandboxID:    args.ID,
 		processes:    map[execID]*execProcess{eid: {}},
@@ -494,6 +507,17 @@ func (l *Loader) run() error {
 		}
 	}
 
+	// TODO: Seems to be a test, delete?
+	files, err := ioutil.ReadDir("/")
+
+	if err != nil {
+		return fmt.Errorf("os_module test err:: %v", err)
+	}
+
+	for _, f := range files {
+		log.Debugf("os_module files: " + f.Name())
+	}
+
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -534,7 +558,7 @@ func (l *Loader) run() error {
 		if err := mntr.processHints(l.conf); err != nil {
 			return err
 		}
-		if err := setupContainerFS(ctx, l.conf, mntr, &l.rootProcArgs); err != nil {
+		if err := setupContainerFS(ctx, l.conf, mntr, &l.rootProcArgs, l.layerFDs); err != nil {
 			return err
 		}
 
@@ -678,7 +702,7 @@ func (l *Loader) startContainer(spec *specs.Spec, conf *Config, cid string, file
 	l.startGoferMonitor(cid, goferFDs)
 
 	mntr := newContainerMounter(spec, goferFDs, l.k, l.mountHints)
-	if err := setupContainerFS(ctx, conf, mntr, &procArgs); err != nil {
+	if err := setupContainerFS(ctx, conf, mntr, &procArgs, l.layerFDs); err != nil {
 		return err
 	}
 

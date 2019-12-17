@@ -474,6 +474,7 @@ func (mns *MountNamespace) FindLink(ctx context.Context, root, wd *Dirent, path 
 	if len(path) == 0 {
 		panic("MountNamespace.FindLink: path is empty")
 	}
+	
 
 	// Split the path.
 	first, remainder := SplitFirst(path)
@@ -607,6 +608,7 @@ func (mns *MountNamespace) resolve(ctx context.Context, root, node *Dirent, rema
 		if err != nil {
 			return nil, err
 		}
+
 
 		// Find the node; we resolve relative to the current symlink's parent.
 		*remainingTraversals--
